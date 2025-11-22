@@ -1,0 +1,302 @@
+<resources>
+    <string name="app_name">Paysage</string>
+    
+    <!-- Navigation -->
+    <string name="nav_library">书库</string>
+    <string name="nav_local_library">本地管理</string>
+    <string name="nav_online_library">在线管理</string>
+    <string name="nav_settings">设置</string>
+    <string name="nav_about">关于</string>
+    <string name="nav_open_library">打开书库菜单</string>
+    <string name="nav_open_local_library">打开本地管理菜单</string>
+    <string name="nav_open_online_library">打开在线管理菜单</string>
+    <string name="nav_open_settings">打开设置菜单</string>
+    <string name="nav_open_about">打开关于信息</string>
+    
+    <!-- Library -->
+    <string name="library_all_books">全部书籍</string>
+    <string name="library_favorites">收藏</string>
+    <string name="library_recent">最近阅读</string>
+    <string name="library_categories">分类</string>
+    
+    <!-- Category -->
+    <string name="category_manga">漫画</string>
+    <string name="category_novel">阅读</string>
+    <string name="category_manga_icon">漫画图标</string>
+    <string name="category_novel_icon">阅读图标</string>
+    
+    <!-- Display Mode -->
+    <string name="display_mode_local">本地</string>
+    <string name="display_mode_online">在线</string>
+    
+    <!-- Online Sources -->
+    <string name="manga_sources">漫画书源</string>
+    <string name="novel_sources">小说书源</string>
+    <string name="add_source">添加书源</string>
+    <string name="edit_source">编辑书源</string>
+    <string name="delete_source">删除书源</string>
+    <string name="source_name">书源名称</string>
+    <string name="source_url">书源地址</string>
+    <string name="source_enabled">启用</string>
+    <string name="source_disabled">禁用</string>
+    <string name="source_priority">优先级</string>
+    <string name="source_validate">验证书源</string>
+    <string name="source_import">导入书源</string>
+    <string name="source_export">导出书源</string>
+    <string name="source_search">搜索书籍</string>
+    
+    <!-- Source Selection -->
+    <string name="source_selection_title">源选择</string>
+    <string name="source_local_manga">本地漫画</string>
+    <string name="source_local_reading">本地阅读</string>
+    <string name="source_manga_source">漫画源</string>
+    <string name="source_reading_source">阅读源</string>
+    <string name="source_no_folder_selected">未选择文件夹</string>
+    <string name="source_manage_online_manga">管理在线漫画书源</string>
+    <string name="source_manage_online_reading">管理在线阅读书源</string>
+    <string name="source_local_manga_desc">选择本地漫画文件夹</string>
+    <string name="source_local_reading_desc">选择本地阅读文件夹</string>
+    <string name="source_manga_source_desc">管理漫画书源</string>
+    <string name="source_reading_source_desc">管理阅读书源</string>
+    <string name="source_permission_denied">存储权限被拒绝</string>
+    <string name="source_invalid_path">无效的文件夹路径</string>
+    
+    <!-- Settings -->
+    <string name="settings_all">全部设置</string>
+    <string name="settings_appearance">外观</string>
+    <string name="settings_reading">阅读</string>
+    <string name="settings_storage">存储</string>
+    
+    <string name="settings_theme_mode">主题模式</string>
+    <string name="settings_theme_light">明亮</string>
+    <string name="settings_theme_dark">暗色</string>
+    <string name="settings_theme_system">跟随系统</string>
+    
+    <string name="settings_color_scheme">配色方案</string>
+    <string name="settings_color_default">默认</string>
+    <string name="settings_color_ocean_blue">海洋蓝</string>
+    <string name="settings_color_sunset_orange">日落橙</string>
+    <string name="settings_color_forest_green">森林绿</string>
+    <string name="settings_color_tech_purple">科技紫</string>
+    <string name="settings_color_black_mamba">黑曼巴</string>
+    <string name="settings_color_grey_style">小黑紫</string>
+    <string name="settings_color_custom">自定义</string>
+    
+    <string name="settings_dynamic_color">壁纸取色</string>
+    <string name="settings_dynamic_color_desc">使用系统壁纸颜色（Android 12+）</string>
+    
+    <string name="settings_language">语言</string>
+    <string name="settings_language_system">跟随系统</string>
+    <string name="settings_language_english">English</string>
+    <string name="settings_language_chinese">中文</string>
+    
+    <string name="settings_grid_columns">网格列数</string>
+    <string name="settings_grid_columns_desc">%d 列</string>
+    <string name="settings_show_progress">显示进度</string>
+    <string name="settings_show_progress_desc">在图书馆显示阅读进度</string>
+    
+    <string name="settings_reading_direction">阅读方向</string>
+    <string name="settings_reading_direction_ltr">从左到右</string>
+    <string name="settings_reading_direction_rtl">从右到左</string>
+    <string name="settings_reading_direction_vertical">垂直</string>
+    
+    <string name="settings_keep_screen_on">保持屏幕常亮</string>
+    <string name="settings_keep_screen_on_desc">阅读时保持屏幕常亮</string>
+    <string name="settings_volume_key_navigation">音量键翻页</string>
+    <string name="settings_volume_key_navigation_desc">使用音量键翻页</string>
+    
+    <string name="settings_auto_scan">启动自动扫描</string>
+    <string name="settings_auto_scan_desc">启动时自动扫描书籍</string>
+    <string name="settings_clear_cache">清除缓存</string>
+    <string name="settings_clear_cache_desc">当前缓存: %s</string>
+    
+    <string name="settings_analytics">分析数据</string>
+    <string name="settings_analytics_desc">帮助改进应用</string>
+    <string name="settings_reset">重置所有设置</string>
+    <string name="settings_reset_desc">恢复默认设置</string>
+    
+    <string name="settings_other">其他</string>
+    
+    <string name="dialog_clear_cache_title">清除缓存</string>
+    <string name="dialog_clear_cache_message">确定要清除所有缓存吗？</string>
+    <string name="dialog_reset_title">重置设置</string>
+    <string name="dialog_reset_message">确定要重置所有设置吗？</string>
+    <string name="dialog_confirm">确定</string>
+    <string name="dialog_cancel">取消</string>
+    
+    <string name="dialog_reading_direction_title">阅读方向</string>
+    <string name="dialog_grid_columns_title">网格列数</string>
+    
+    <!-- Library Empty State -->
+    <string name="library_empty_title">书库为空</string>
+    <string name="library_empty_message">点击右下角按钮扫描本地文件</string>
+    <string name="library_start_scan">开始扫描</string>
+    
+    <!-- About -->
+    <string name="about_version">版本信息</string>
+    <string name="about_license">开源许可</string>
+    <string name="about_github">GitHub</string>
+    
+    <!-- Library Sync -->
+    <string name="library_sync_title">书库同步</string>
+    <string name="file_types">文件类型</string>
+    <string name="comic_files">漫画文件</string>
+    <string name="archive_files">压缩文件</string>
+    <string name="maintenance">维护</string>
+    <string name="more_options">更多</string>
+    <string name="remove_deleted_files">移出已删除文件</string>
+    <string name="remove_deleted_files_desc">移除文件已不存在的书籍</string>
+    <string name="update_modified_files">从修改过的文件更新数据</string>
+    <string name="update_modified_files_desc">刷新已修改文件的数据</string>
+    <string name="generate_missing_thumbnails">生成已删除的缩略图</string>
+    <string name="generate_missing_thumbnails_desc">为没有封面的书籍创建缩略图</string>
+    <string name="scan_subfolders">扫描子文件夹</string>
+    <string name="scan_subfolders_desc">包含子目录中的文件</string>
+    <string name="skip_hidden_folders">跳过被定义为隐藏的库文件夹</string>
+    <string name="skip_hidden_folders_desc">忽略以点开头的文件夹</string>
+    <string name="parallel_sync">并行同步</string>
+    <string name="parallel_sync_desc">同时处理多个文件夹</string>
+    <string name="start_full_sync">开始完整同步</string>
+    <string name="sync">同步</string>
+    <string name="sync_complete">同步完成：新增 %1$d 本，更新 %2$d 本</string>
+    <string name="sync_error">同步失败：%1$s</string>
+    
+    <!-- Filter Bar -->
+    <string name="filter_all">全部</string>
+    <string name="filter_latest">最新</string>
+    <string name="filter_reading">阅读中</string>
+    <string name="filter_finished">已阅</string>
+    <string name="filter_unread">未读</string>
+    <string name="search_in_category">搜索分类</string>
+    
+    <!-- Reading Status -->
+    <string name="status_unread">未读</string>
+    <string name="status_reading">阅读中</string>
+    <string name="status_finished">已读</string>
+    <string name="status_latest">最新</string>
+    
+    <!-- Last Reading FAB -->
+    <string name="continue_reading">继续阅读</string>
+    <string name="continue_reading_with_title">继续阅读 %1$s</string>
+    <string name="reading_progress">阅读进度 %1$d%%</string>
+    <string name="book_file_not_found">该书籍文件已被移动或删除</string>
+    
+    <!-- Book Detail Bottom Sheet -->
+    <string name="book_detail_title">书籍详情</string>
+    <string name="book_detail_add_to_shelf">书架</string>
+    <string name="book_detail_view_book">查看</string>
+    <string name="book_detail_sort_by">排序方式</string>
+    <string name="book_detail_sort_new">新的</string>
+    <string name="book_detail_sort_title">标题</string>
+    <string name="book_detail_sort_author">作者</string>
+    <string name="book_detail_sort_recent">最近阅读</string>
+    <string name="book_detail_sort_added">添加时间</string>
+    <string name="book_detail_no_tags">无 # 标签</string>
+    <string name="book_detail_edit_tags">编辑标签</string>
+    <string name="book_detail_add_tag">添加标签</string>
+    <string name="book_detail_tag_hint">输入标签名称</string>
+    <string name="book_detail_pages">页数</string>
+    <string name="book_detail_last_read">上次阅读</string>
+    <string name="book_detail_not_read">还未读过</string>
+    <string name="book_detail_author">编剧</string>
+    <string name="book_detail_directory">目录</string>
+    <string name="book_detail_path_copied">已复制路径</string>
+    <string name="book_detail_close">关闭</string>
+    <string name="book_detail_favorite">收藏</string>
+    <string name="book_detail_unfavorite">取消收藏</string>
+    <string name="book_detail_edit">编辑</string>
+    <string name="book_detail_share">分享</string>
+    <string name="book_detail_delete">删除</string>
+    <string name="book_detail_delete_confirm_title">删除书籍</string>
+    <string name="book_detail_delete_confirm_message">确定要删除这本书吗？此操作无法撤销。</string>
+    <string name="book_detail_file_not_found">文件不存在</string>
+    <string name="book_detail_remove_from_library">从书库移除</string>
+    <string name="book_detail_file_size">大小: %s</string>
+    <string name="book_detail_just_now">刚刚</string>
+    <string name="book_detail_minutes_ago">%d 分钟前</string>
+    <string name="book_detail_hours_ago">%d 小时前</string>
+    <string name="book_detail_days_ago">%d 天前</string>
+    <string name="book_detail_weeks_ago">%d 周前</string>
+    <string name="book_detail_months_ago">%d 个月前</string>
+    <string name="book_detail_years_ago">%d 年前</string>
+    <string name="book_detail_share_failed">分享失败</string>
+    <string name="book_detail_delete_failed">删除失败</string>
+    <string name="book_detail_update_failed">更新失败</string>
+    
+    <!-- Filter Empty States -->
+    <string name="empty_favorites_title">暂无收藏的书籍</string>
+    <string name="empty_favorites_message">点击书籍详情中的收藏按钮来添加收藏</string>
+    <string name="empty_recent_title">暂无最近阅读记录</string>
+    <string name="empty_recent_message">开始阅读书籍后，这里会显示最近阅读的内容</string>
+    <string name="empty_categories_title">暂无分类</string>
+    <string name="empty_categories_message">书籍的分类信息会在扫描时自动识别</string>
+    <string name="empty_category_title">该分类下暂无书籍</string>
+    <string name="empty_category_message">尝试其他分类或返回全部书籍</string>
+    
+    <!-- Category -->
+    <string name="category_book_count">%d 本书籍</string>
+    
+    <!-- Folder Management -->
+    <string name="create_folder">创建文件夹</string>
+    <string name="create_folder_desc">在当前目录创建新文件夹</string>
+    <string name="folder_name">文件夹名称</string>
+    <string name="folder_name_hint">请输入文件夹名称</string>
+    <string name="folder_name_empty">文件夹名称不能为空</string>
+    <string name="folder_name_invalid">文件夹名称包含非法字符</string>
+    <string name="folder_name_exists">文件夹名称已存在</string>
+    <string name="folder_name_too_long">文件夹名称过长（最多255个字符）</string>
+    <string name="folder_create_success">文件夹创建成功</string>
+    <string name="folder_create_failed">文件夹创建失败：%s</string>
+    <string name="folder_creating">正在创建文件夹...</string>
+    
+    <!-- Folder Edit Management -->
+    <string name="edit_folder">编辑文件夹</string>
+    <string name="edit_folder_desc">编辑、重命名或删除文件夹</string>
+    <string name="rename_folder">重命名文件夹</string>
+    <string name="rename_folder_title">重命名文件夹</string>
+    <string name="folder_new_name">新文件夹名称</string>
+    <string name="folder_renaming">正在重命名文件夹...</string>
+    <string name="folder_rename_success">文件夹重命名成功</string>
+    <string name="folder_rename_failed">文件夹重命名失败：%s</string>
+    <string name="delete_folder">删除文件夹</string>
+    <string name="delete_folder_title">删除文件夹</string>
+    <string name="delete_folder_message">确定要删除"%s"吗？此操作无法撤销。</string>
+    <string name="delete_folders_message">确定要删除 %d 个文件夹吗？此操作无法撤销。</string>
+    <string name="folder_deleting">正在删除文件夹...</string>
+    <string name="folder_delete_success">文件夹删除成功</string>
+    <string name="folders_delete_success">成功删除 %d 个文件夹</string>
+    <string name="folder_delete_failed">文件夹删除失败：%s</string>
+    <string name="enter_edit_mode">进入编辑模式</string>
+    <string name="exit_edit_mode">退出编辑模式</string>
+    <string name="select_all">全选</string>
+    <string name="deselect_all">取消全选</string>
+    <string name="selected_count">已选择 %d 项</string>
+    <string name="delete_selected">删除选中项</string>
+    <string name="sort_by">排序方式</string>
+    <string name="sort_by_name">名称</string>
+    <string name="sort_by_created_time">创建时间</string>
+    <string name="sort_by_updated_time">修改时间</string>
+    <string name="sort_by_custom">自定义顺序</string>
+    <string name="sort_ascending">升序</string>
+    <string name="sort_descending">降序</string>
+    <string name="drag_to_reorder">拖动以重新排序</string>
+    <string name="folder_operations">文件夹操作</string>
+    
+    <string name="error_permission_denied">存储权限被拒绝</string>
+    <string name="error_insufficient_space">存储空间不足</string>
+    <string name="error_invalid_path">无效的文件夹路径</string>
+    <string name="error_folder_exists">文件夹已存在</string>
+    <string name="error_network">网络错误</string>
+    <string name="error_unknown">未知错误：%s</string>
+    <string name="retry">重试</string>
+    
+    <!-- History Screen -->
+    <string name="history_title">历史记录</string>
+    <string name="history_empty">暂无阅读记录</string>
+    <string name="history_clear_all">清空历史记录</string>
+    <string name="history_clear_confirm">确定要清空所有阅读记录吗？</string>
+    <string name="history_delete_item">删除记录</string>
+    <string name="history_continue_reading">继续阅读</string>
+    <string name="history_open_file">打开文件</string>
+    <string name="history_file_not_found">文件不存在</string>
+</resources>
