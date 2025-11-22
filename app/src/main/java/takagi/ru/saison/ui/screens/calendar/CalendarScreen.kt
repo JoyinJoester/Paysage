@@ -54,6 +54,14 @@ fun CalendarScreen(
     val courses by viewModel.courses.collectAsState()
     val tasks by viewModel.tasks.collectAsState()
     val events by viewModel.events.collectAsState()
+    val daysWithCourses by viewModel.daysWithCourses.collectAsState()
+    val datesWithTasksOrEvents by viewModel.datesWithTasksOrEvents.collectAsState()
+    
+    val hasIndicator = remember(daysWithCourses, datesWithTasksOrEvents) {
+        { date: LocalDate ->
+            daysWithCourses.contains(date.dayOfWeek) || datesWithTasksOrEvents.contains(date)
+        }
+    }
 
     // Pager State
     val initialPage = Int.MAX_VALUE / 2
@@ -226,7 +234,10 @@ fun CalendarScreen(
                     // Weekday headers inside the card
                     if (viewMode == CalendarViewMode.MONTH) {
                         Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                            val daysOfWeek = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+                            // Start from Monday (1) to Sunday (7)
+                            val daysOfWeek = (1..7).map { dayValue ->
+                                java.time.DayOfWeek.of(dayValue).getDisplayName(TextStyle.SHORT, Locale.getDefault())
+                            }
                             daysOfWeek.forEach { day ->
                                 Text(
                                     text = day,
@@ -256,7 +267,8 @@ fun CalendarScreen(
                                         onDateSelected = { date ->
                                             viewModel.onDateSelected(date)
                                         },
-                                        showHeaders = false // Headers are now outside
+                                        showHeaders = false, // Headers are now outside
+                                        hasIndicator = hasIndicator
                                     )
                                 }
                             } else {
@@ -287,14 +299,17 @@ fun CalendarScreen(
                                     WeekView(
                                         selectedDate = if (isSelectedInThisWeek) selectedDate else startOfWeek,
                                         onDateSelected = { viewModel.onDateSelected(it) },
-                                        forceShowWeekOf = startOfWeek
+                                        forceShowWeekOf = startOfWeek,
+                                        showHeaders = false,
+                                        hasIndicator = hasIndicator
                                     )
                                 }
                             }
                         }
                         CalendarViewMode.WEEK -> WeekView(
                             selectedDate = selectedDate,
-                            onDateSelected = { viewModel.onDateSelected(it) }
+                            onDateSelected = { viewModel.onDateSelected(it) },
+                            hasIndicator = hasIndicator
                         )
                         CalendarViewMode.DAY -> DayView(
                             selectedDate = selectedDate,
@@ -323,7 +338,9 @@ fun CalendarScreen(
 fun WeekView(
     selectedDate: LocalDate,
     onDateSelected: (LocalDate) -> Unit,
-    forceShowWeekOf: LocalDate? = null
+    forceShowWeekOf: LocalDate? = null,
+    showHeaders: Boolean = true,
+    hasIndicator: (LocalDate) -> Boolean = { false }
 ) {
     val dateForWeek = forceShowWeekOf ?: selectedDate
     // Assuming Monday start, calculate start of week
@@ -339,8 +356,10 @@ fun WeekView(
                 modifier = Modifier.weight(1f).clickable { onDateSelected(date) },
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text(text = date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()), style = MaterialTheme.typography.bodySmall)
-                Spacer(modifier = Modifier.height(4.dp))
+                if (showHeaders) {
+                    Text(text = date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()), style = MaterialTheme.typography.bodySmall)
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
                 Box(
                     modifier = Modifier
                         .size(36.dp)
@@ -358,6 +377,21 @@ fun WeekView(
                         else if (isToday) MaterialTheme.colorScheme.onSecondaryContainer
                         else MaterialTheme.colorScheme.onSurface
                     )
+                    
+                    if (hasIndicator(date)) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(bottom = 2.dp)
+                                .size(4.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (isSelected) MaterialTheme.colorScheme.onPrimary
+                                    else if (isToday) MaterialTheme.colorScheme.onSecondaryContainer
+                                    else MaterialTheme.colorScheme.primary
+                                )
+                        )
+                    }
                 }
             }
         }
@@ -392,7 +426,8 @@ fun CalendarView(
     currentMonth: YearMonth,
     selectedDate: LocalDate,
     onDateSelected: (LocalDate) -> Unit,
-    showHeaders: Boolean = true
+    showHeaders: Boolean = true,
+    hasIndicator: (LocalDate) -> Boolean = { false }
 ) {
     val daysInMonth = currentMonth.lengthOfMonth()
     val firstDayOfMonth = currentMonth.atDay(1).dayOfWeek.value // 1 (Mon) to 7 (Sun)
@@ -405,7 +440,10 @@ fun CalendarView(
         // Weekday headers
         if (showHeaders) {
             Row(modifier = Modifier.fillMaxWidth()) {
-                val daysOfWeek = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+                // Start from Monday (1) to Sunday (7)
+                val daysOfWeek = (1..7).map { dayValue ->
+                    java.time.DayOfWeek.of(dayValue).getDisplayName(TextStyle.SHORT, Locale.getDefault())
+                }
                 daysOfWeek.forEach { day ->
                     Text(
                         text = day,
@@ -455,6 +493,21 @@ fun CalendarView(
                                 else if (isToday) MaterialTheme.colorScheme.onSecondaryContainer
                                 else MaterialTheme.colorScheme.onSurface
                             )
+                            
+                            if (hasIndicator(date)) {
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomCenter)
+                                        .padding(bottom = 4.dp)
+                                        .size(4.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            if (isSelected) MaterialTheme.colorScheme.onPrimary
+                                            else if (isToday) MaterialTheme.colorScheme.onSecondaryContainer
+                                            else MaterialTheme.colorScheme.primary
+                                        )
+                                )
+                            }
                         }
                     }
                 }
