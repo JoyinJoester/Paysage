@@ -94,33 +94,29 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         repository.getCategoriesWithCountFlow()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     
-    // 根据筛选模式获取当前显示的书籍列表
+    // 根据筛选模式获取当前显示的书籍列表 - 优化：使用 flatMapLatest 替代 combine
+    @OptIn(ExperimentalCoroutinesApi::class)
     val displayBooks: StateFlow<List<Book>> = combine(
         filterMode,
-        selectedCategory,
-        allBooks,
-        favoriteBooks,
-        recentBooks
-    ) { mode, category, all, favorites, recent ->
-        try {
+        selectedCategory
+    ) { mode, category -> Pair(mode, category) }
+        .flatMapLatest { (mode, category) ->
             when (mode) {
-                FilterMode.ALL -> all
-                FilterMode.FAVORITES -> favorites
-                FilterMode.RECENT -> recent
+                FilterMode.ALL -> allBooks
+                FilterMode.FAVORITES -> favoriteBooks
+                FilterMode.RECENT -> recentBooks
                 FilterMode.CATEGORY -> {
                     if (category != null && category.isNotBlank()) {
-                        all.filter { it.category == category }
+                        allBooks.map { books -> books.filter { it.category == category } }
                     } else {
-                        emptyList()
+                        flowOf(emptyList())
                     }
                 }
-                FilterMode.CATEGORIES -> emptyList() // 分类列表视图不显示书籍
+                FilterMode.CATEGORIES -> flowOf(emptyList()) // 分类列表视图不显示书籍
             }
-        } catch (e: Exception) {
-            // 发生错误时返回空列表
-            emptyList()
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .catch { emit(emptyList()) } // 发生错误时返回空列表
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     
     // 统计信息
     private val _statistics = MutableStateFlow<LibraryStatistics?>(null)

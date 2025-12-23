@@ -75,7 +75,7 @@ fun LibraryScreen(
     val filterMode by viewModel.filterMode.collectAsState()
     val displayBooks by viewModel.displayBooks.collectAsState()
     val categoriesWithCount by viewModel.categoriesWithCount.collectAsState()
-    val books by viewModel.allBooks.collectAsState()
+    // val books by viewModel.allBooks.collectAsState() // 已优化移除：未使用的订阅
     val uiState by viewModel.uiState.collectAsState()
     val statistics by viewModel.statistics.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
@@ -498,8 +498,10 @@ private fun BookCardContent(
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
                         .data(book.coverPath)
-                        .crossfade(300)
-                        .memoryCacheKey(book.id.toString())
+                        .crossfade(200)  // 优化：减少动画时间
+                        .memoryCacheKey("cover_${book.id}")
+                        .diskCacheKey("cover_${book.id}")  // 优化：添加磁盘缓存
+                        .size(300, 420)  // 优化：限制加载尺寸
                         .build(),
                     contentDescription = book.title,
                     modifier = Modifier.fillMaxSize(),
@@ -756,8 +758,10 @@ private fun BookListItemContent(
                     AsyncImage(
                         model = ImageRequest.Builder(LocalContext.current)
                             .data(book.coverPath)
-                            .crossfade(300)
-                            .memoryCacheKey(book.id.toString())
+                            .crossfade(200)  // 优化：减少动画时间
+                            .memoryCacheKey("cover_${book.id}")
+                            .diskCacheKey("cover_${book.id}")  // 优化：添加磁盘缓存
+                            .size(300, 450)  // 优化：限制加载尺寸
                             .build(),
                         contentDescription = book.title,
                         modifier = Modifier.fillMaxSize(),
@@ -1020,8 +1024,10 @@ private fun BookCompactCardContent(
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
                         .data(book.coverPath)
-                        .crossfade(true)
-                        .memoryCacheKey(book.id.toString())
+                        .crossfade(200)  // 优化：减少动画时间
+                        .memoryCacheKey("cover_${book.id}")
+                        .diskCacheKey("cover_${book.id}")  // 优化：添加磁盘缓存
+                        .size(300, 420)  // 优化：限制加载尺寸
                         .build(),
                     contentDescription = book.title,
                     modifier = Modifier.fillMaxSize(),

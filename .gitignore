@@ -1,15 +1,26 @@
+## Gradle
+.gradle/
+build/
+**/build/
+
+## IDE
+.idea/
 *.iml
-.gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
-.DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
+
+## Android
 local.properties
+captures/
+.externalNativeBuild
+.cxx/
+
+## OS
+.DS_Store
+
+## Project Specific Ignores
+legado-master/
+*.zip
+*.jpg
+build_output.txt
+
+## Sub-projects (if they have their own git)
+# Paysage侧边栏/
