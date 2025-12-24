@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt.android)
 }
 
 android {
@@ -29,17 +30,17 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
     kotlinOptions {
-        jvmTarget = '1.8'
+        jvmTarget = '17'
     }
     buildFeatures {
         compose true
     }
     composeOptions {
-        kotlinCompilerExtensionVersion '1.5.1'
+        kotlinCompilerExtensionVersion '1.5.14'
     }
     packaging {
         resources {
@@ -50,6 +51,20 @@ android {
     // 解决依赖冲突
     configurations.all {
         exclude group: 'com.android.support', module: 'support-compat'
+    }
+    
+    // Exclude Saison source code from Paysage build
+    sourceSets {
+        main {
+            java {
+                srcDirs = ['src/main/java']
+                exclude '**/takagi/ru/saison/**'
+            }
+            kotlin {
+                srcDirs = ['src/main/java']
+                exclude '**/takagi/ru/saison/**'
+            }
+        }
     }
 }
 
@@ -97,6 +112,23 @@ dependencies {
     // Archive Libraries
     implementation libs.junrar
     implementation libs.commons.compress
+    
+    // Hilt Dependency Injection
+    implementation libs.hilt.android
+    ksp libs.hilt.compiler
+    implementation libs.hilt.navigation.compose
+    implementation libs.hilt.work
+    
+    // WorkManager
+    implementation libs.work.runtime.ktx
+    
+    // OkHttp
+    implementation libs.okhttp
+    implementation libs.okhttp.logging
+    
+    // Retrofit
+    implementation libs.retrofit
+    implementation libs.retrofit.kotlinx.serialization
     
     testImplementation libs.junit
     androidTestImplementation libs.androidx.junit

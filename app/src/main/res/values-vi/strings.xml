@@ -358,7 +358,7 @@
     <string name="duration_clear">Xóa</string>
     <string name="duration_format_hours">%d giờ</string>
     <string name="duration_format_minutes">%d phút</string>
-    <string name="duration_format_hours_minutes">%d giờ %d phút</string>
+    <string name="duration_format_hours_minutes">%1$d giờ %2$d phút</string>
     
     <!-- Xem trước nhiệm vụ -->
     <string name="task_preview_title">Chi tiết nhiệm vụ</string>
@@ -553,7 +553,7 @@
     
     <!-- Tối ưu giao diện thời khóa biểu -->
     <string name="period_number_format">Tiết %d</string>
-    <string name="time_range_format">%s-%s</string>
+    <string name="time_range_format">%1$s-%2$s</string>
     <string name="week_number_format">Tuần %1$d / %2$d</string>
     <string name="empty_timetable_message">Tuần này không có lớp học</string>
     <string name="empty_timetable_action">Thêm khóa học</string>

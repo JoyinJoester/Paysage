@@ -358,7 +358,7 @@
     <string name="duration_clear">クリア</string>
     <string name="duration_format_hours">%d時間</string>
     <string name="duration_format_minutes">%d分</string>
-    <string name="duration_format_hours_minutes">%d時間%d分</string>
+    <string name="duration_format_hours_minutes">%1$d時間%2$d分</string>
     
     <!-- タスクプレビュー -->
     <string name="task_preview_title">タスク詳細</string>
@@ -554,7 +554,7 @@
     
     <!-- 時間割UI最適化 -->
     <string name="period_number_format">第%d時限</string>
-    <string name="time_range_format">%s-%s</string>
+    <string name="time_range_format">%1$s-%2$s</string>
     <string name="week_number_format">第%1$d / %2$d週</string>
     <string name="empty_timetable_message">今週は授業がありません</string>
     <string name="empty_timetable_action">授業を追加</string>
