@@ -23,3 +23,4 @@ Paysage侧边栏/
 *.zip
 *.jpg
 build_output.txt
+build_error.txt
