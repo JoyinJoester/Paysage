@@ -18,9 +18,8 @@ captures/
 
 ## Project Specific Ignores
 legado-master/
+.kiro/
+Paysage侧边栏/
 *.zip
 *.jpg
 build_output.txt
-
-## Sub-projects (if they have their own git)
-# Paysage侧边栏/
