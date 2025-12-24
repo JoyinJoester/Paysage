@@ -4,7 +4,7 @@ import android.app.Application
 import android.graphics.Bitmap
 import android.net.Uri
 import android.util.Log
-import androidx.compose.runtime.mutableStateMapOf
+import android.util.LruCache
 import androidx.compose.ui.geometry.Offset
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -22,6 +22,7 @@ import java.io.File
 import kotlin.math.abs
 
 private const val TAG = "ReaderViewModel"
+private const val MAX_CACHE_SIZE = 10 // 最多缓存10页，避免内存溢出
 
 /**
  * 阅读器 ViewModel - 简化版
@@ -46,16 +47,29 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
     private val _currentPageBitmap = MutableStateFlow<Bitmap?>(null)
     val currentPageBitmap: StateFlow<Bitmap?> = _currentPageBitmap.asStateFlow()
     
-    // 页面缓存 - 用于预加载
-    // 使用 mutableStateMapOf 以便 Compose 能感知变化
-    private val pageCache = mutableStateMapOf<Int, Bitmap>()
+    // 页面缓存 - 使用 LruCache 限制内存使用
+    private val pageCache = object : LruCache<Int, Bitmap>(MAX_CACHE_SIZE) {
+        override fun entryRemoved(evicted: Boolean, key: Int, oldValue: Bitmap, newValue: Bitmap?) {
+            if (evicted && !oldValue.isRecycled) {
+                try {
+                    oldValue.recycle()
+                    Log.d(TAG, "Recycled evicted page $key")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error recycling bitmap for page $key", e)
+                }
+            }
+        }
+        
+        override fun sizeOf(key: Int, value: Bitmap): Int {
+            return 1 // 按页数计算，不按字节
+        }
+    }
     
     // 预加载状态
     private val _preloadProgress = MutableStateFlow(0f)
     val preloadProgress: StateFlow<Float> = _preloadProgress.asStateFlow()
     
-    // 预加载任务控制
-    private var fullBookPreloadJob: kotlinx.coroutines.Job? = null
+    // 预加载任务控制 - 仅保留相邻页预加载
     private var nearbyPreloadJob: kotlinx.coroutines.Job? = null
     
     /**
@@ -95,8 +109,8 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
                 loadPage(book, progress.currentPage)
                 preloadNearbyPages(book, progress.currentPage)
                 
-                // 启动全书预加载（低优先级）
-                startFullBookPreload(book, progress.currentPage)
+                // 注意：已禁用全书预加载，避免内存溢出
+                // startFullBookPreload(book, progress.currentPage)
                 
             } catch (e: Exception) {
                 Log.e(TAG, "Error opening book", e)
@@ -116,8 +130,9 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
     private suspend fun loadPage(book: Book, pageNumber: Int) {
         try {
             // 如果缓存中有，直接使用
-            if (pageCache.containsKey(pageNumber)) {
-                _currentPageBitmap.value = pageCache[pageNumber]
+            val cachedBitmap = pageCache.get(pageNumber)
+            if (cachedBitmap != null && !cachedBitmap.isRecycled) {
+                _currentPageBitmap.value = cachedBitmap
                 _uiState.update { it.copy(currentPage = pageNumber) }
                 
                 // 更新进度
@@ -139,7 +154,7 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
             // 更新 UI
             _currentPageBitmap.value = bitmap
             if (bitmap != null) {
-                pageCache[pageNumber] = bitmap
+                pageCache.put(pageNumber, bitmap)
             }
             _uiState.update { it.copy(currentPage = pageNumber) }
             
@@ -269,7 +284,10 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
         if (pageNumber < 0 || pageNumber >= book.totalPages) return null
         
         // 如果已经在缓存中，直接返回
-        pageCache[pageNumber]?.let { return it }
+        val cachedBitmap = pageCache.get(pageNumber)
+        if (cachedBitmap != null && !cachedBitmap.isRecycled) {
+            return cachedBitmap
+        }
         
         return try {
             val bitmap = withContext(Dispatchers.IO) {
@@ -283,8 +301,8 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
             }
             
             if (bitmap != null) {
-                pageCache[pageNumber] = bitmap
-                Log.d(TAG, "Preloaded page $pageNumber")
+                pageCache.put(pageNumber, bitmap)
+                Log.d(TAG, "Preloaded page $pageNumber, cache size: ${pageCache.size()}/$MAX_CACHE_SIZE")
             }
             bitmap
         } catch (e: Exception) {
@@ -300,54 +318,26 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
     private fun preloadNearbyPages(book: Book, currentPage: Int) {
         nearbyPreloadJob?.cancel()
         nearbyPreloadJob = viewModelScope.launch(Dispatchers.IO) {
+            // 只预加载前后各2页
             val neighbors = listOf(currentPage + 1, currentPage - 1, currentPage + 2, currentPage - 2)
             for (page in neighbors) {
-                if (page in 0 until book.totalPages && !pageCache.containsKey(page)) {
-                    preloadPageInternal(book, page)
+                if (page in 0 until book.totalPages) {
+                    val cached = pageCache.get(page)
+                    if (cached == null || cached.isRecycled) {
+                        preloadPageInternal(book, page)
+                    }
                 }
             }
         }
     }
     
-    /**
-     * 启动全书预加载 (低优先级)
-     */
+    // 已禁用全书预加载功能，避免内存溢出
+    // 如需恢复，请取消注释下面的代码
+    /*
     private fun startFullBookPreload(book: Book, currentPage: Int) {
-        // 不取消之前的全书预加载，除非是 cleanup
-        if (fullBookPreloadJob?.isActive == true) return
-        
-        fullBookPreloadJob = viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val totalPages = book.totalPages
-                val loadedPages = mutableSetOf<Int>()
-                
-                // 简单的顺序预加载，跳过已加载的
-                // 从当前页向后
-                for (page in currentPage until totalPages) {
-                    if (!pageCache.containsKey(page)) {
-                        preloadPageInternal(book, page)
-                        loadedPages.add(page)
-                        // 稍微延时，避免占满 IO
-                        kotlinx.coroutines.delay(50)
-                    }
-                }
-                // 从当前页向前
-                for (page in currentPage - 1 downTo 0) {
-                    if (!pageCache.containsKey(page)) {
-                        preloadPageInternal(book, page)
-                        loadedPages.add(page)
-                        kotlinx.coroutines.delay(50)
-                    }
-                }
-                
-                _preloadProgress.value = 1f
-                Log.d(TAG, "Full book preload completed")
-                
-            } catch (e: Exception) {
-                Log.e(TAG, "Full book preload failed", e)
-            }
-        }
+        // 全书预加载会导致大量内存消耗，已禁用
     }
+    */
     
     /**
      * 获取下一页 Bitmap（用于翻页动画）
@@ -380,19 +370,19 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
     fun cleanup() {
         // 取消预加载任务
         nearbyPreloadJob?.cancel()
-        fullBookPreloadJob?.cancel()
         nearbyPreloadJob = null
-        fullBookPreloadJob = null
         
         _currentBookId.value = null
-        _currentPageBitmap.value?.recycle()
+        
+        // 不回收 currentPageBitmap，因为它可能来自缓存
         _currentPageBitmap.value = null
         
-        // 清理页面缓存
-        pageCache.values.forEach { bitmap ->
-            bitmap.recycle()
+        // 清理页面缓存 - LruCache 的 evictAll 会触发 entryRemoved 回调
+        try {
+            pageCache.evictAll()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error clearing page cache", e)
         }
-        pageCache.clear()
         
         _preloadProgress.value = 0f
         _uiState.value = ReaderUiState()
@@ -408,7 +398,8 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
      * @return 页面位图，如果未缓存则返回 null
      */
     fun getPageBitmap(page: Int): Bitmap? {
-        return pageCache[page]
+        val bitmap = pageCache.get(page)
+        return if (bitmap != null && !bitmap.isRecycled) bitmap else null
     }
     
     override fun onCleared() {
