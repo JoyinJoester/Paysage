@@ -6,6 +6,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import takagi.ru.paysage.data.model.Folder
 import takagi.ru.paysage.ui.components.LibraryDrawerContent
 import takagi.ru.paysage.ui.components.LibraryDrawerItem
 import takagi.ru.paysage.util.WindowSizeClass
@@ -30,6 +31,11 @@ fun TwoLayerNavigationScaffold(
     onCreateFolderClick: () -> Unit = {},
     onScanSource: (android.net.Uri) -> Unit = {},
     bookCount: Int = 0,
+    allBooks: List<takagi.ru.paysage.data.model.Book> = emptyList(),
+    customFolders: List<Folder> = emptyList(),
+    onCreateFolder: (String) -> Unit = {},
+    onRenameFolder: (Folder, String) -> Unit = { _, _ -> },
+    onDeleteFolder: (Folder) -> Unit = {},
     modifier: Modifier = Modifier,
     content: @Composable (windowSizeClass: WindowSizeClass, onOpenDrawer: () -> Unit) -> Unit
 ) {
@@ -71,7 +77,12 @@ fun TwoLayerNavigationScaffold(
                         onFilePickerClick = onFilePickerClick,
                         onCreateFolderClick = onCreateFolderClick,
                         onScanSource = onScanSource,
-                        bookCount = bookCount
+                        bookCount = bookCount,
+                        allBooks = allBooks,
+                        customFolders = customFolders,
+                        onCreateFolder = onCreateFolder,
+                        onRenameFolder = onRenameFolder,
+                        onDeleteFolder = onDeleteFolder
                     )
                 },
                 modifier = modifier,
@@ -100,6 +111,11 @@ fun TwoLayerNavigationScaffold(
                     onCreateFolderClick = onCreateFolderClick,
                     onScanSource = onScanSource,
                     bookCount = bookCount,
+                    allBooks = allBooks,
+                    customFolders = customFolders,
+                    onCreateFolder = onCreateFolder,
+                    onRenameFolder = onRenameFolder,
+                    onDeleteFolder = onDeleteFolder,
                     modifier = Modifier.width(344.dp) // 64 + 280
                 )
                 
@@ -111,6 +127,7 @@ fun TwoLayerNavigationScaffold(
         }
     }
 }
+
 
 // ========== 保留向后兼容的签名 ==========
 
@@ -138,6 +155,11 @@ fun TwoLayerNavigationScaffold(
     onGithubClick: () -> Unit = {},
     onCreateFolderClick: () -> Unit = {},
     onScanSource: (android.net.Uri) -> Unit = {},
+    customFolders: List<Folder> = emptyList(),
+    onCreateFolder: (String) -> Unit = {},
+    onRenameFolder: (Folder, String) -> Unit = { _, _ -> },
+    onDeleteFolder: (Folder) -> Unit = {},
+    onLibraryItemClick: (LibraryDrawerItem) -> Unit = {},  // 新增：书库菜单项点击回调
     content: @Composable (windowSizeClass: WindowSizeClass, onOpenDrawer: () -> Unit) -> Unit
 ) {
     // 检测窗口尺寸
@@ -182,6 +204,7 @@ fun TwoLayerNavigationScaffold(
                         selectedLibraryItem = selectedLibraryItem,
                         onLibraryItemClick = { item ->
                             selectedLibraryItem = item
+                            onLibraryItemClick(item)  // 调用回调
                             scope.launch { drawerState.close() }
                         },
                         onSettingsClick = { onPrimaryItemClick(PrimaryNavItem.Settings) },
@@ -193,7 +216,11 @@ fun TwoLayerNavigationScaffold(
                         onFilePickerClick = onSourceSelectionClick,
                         onCreateFolderClick = onCreateFolderClick,
                         onScanSource = onScanSource,
-                        bookCount = 0
+                        bookCount = 0,
+                        customFolders = customFolders,
+                        onCreateFolder = onCreateFolder,
+                        onRenameFolder = onRenameFolder,
+                        onDeleteFolder = onDeleteFolder
                     )
                 },
                 modifier = modifier,
@@ -210,6 +237,7 @@ fun TwoLayerNavigationScaffold(
                     selectedLibraryItem = selectedLibraryItem,
                     onLibraryItemClick = { item ->
                         selectedLibraryItem = item
+                        onLibraryItemClick(item)  // 调用回调
                     },
                     onSettingsClick = { onPrimaryItemClick(PrimaryNavItem.Settings) },
                     onInfoClick = { onPrimaryItemClick(PrimaryNavItem.About) },
@@ -221,6 +249,10 @@ fun TwoLayerNavigationScaffold(
                     onCreateFolderClick = onCreateFolderClick,
                     onScanSource = onScanSource,
                     bookCount = 0,
+                    customFolders = customFolders,
+                    onCreateFolder = onCreateFolder,
+                    onRenameFolder = onRenameFolder,
+                    onDeleteFolder = onDeleteFolder,
                     modifier = Modifier.width(344.dp) // 64 + 280
                 )
                 
@@ -232,3 +264,4 @@ fun TwoLayerNavigationScaffold(
         }
     }
 }
+

@@ -59,6 +59,9 @@ interface BookDao {
     
     @Query("UPDATE books SET currentPage = :page, lastReadAt = :timestamp WHERE id = :bookId")
     suspend fun updateReadingProgress(bookId: Long, page: Int, timestamp: Long)
+
+    @Query("UPDATE books SET currentPage = :page, isFinished = :isFinished, lastReadAt = :timestamp WHERE id = :bookId")
+    suspend fun updateReadingProgress(bookId: Long, page: Int, isFinished: Boolean, timestamp: Long)
     
     @Query("SELECT COUNT(*) FROM books")
     suspend fun getBookCount(): Int

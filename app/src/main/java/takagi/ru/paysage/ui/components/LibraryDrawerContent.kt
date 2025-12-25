@@ -23,8 +23,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CreateNewFolder
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
@@ -38,11 +41,14 @@ import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.List
 import androidx.compose.material.icons.rounded.CollectionsBookmark
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -55,6 +61,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import takagi.ru.paysage.data.model.Folder
+import takagi.ru.paysage.data.model.ModuleType
+
 
 /**
  * Layer 1 icon categories - determines what Layer 2 displays
@@ -93,6 +102,11 @@ fun LibraryDrawerContent(
     onCreateFolderClick: () -> Unit = {},
     onScanSource: (android.net.Uri) -> Unit = {},
     bookCount: Int = 0,
+    allBooks: List<takagi.ru.paysage.data.model.Book> = emptyList(),
+    customFolders: List<Folder> = emptyList(),
+    onCreateFolder: (String) -> Unit = {},
+    onRenameFolder: (Folder, String) -> Unit = { _, _ -> },
+    onDeleteFolder: (Folder) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     // Track which Layer 1 item is selected
@@ -199,11 +213,16 @@ fun LibraryDrawerContent(
                         onItemClick = onLibraryItemClick,
                         onModeClick = onModeClick,
                         onCreateFolderClick = onCreateFolderClick,
-                        bookCount = bookCount
+                        bookCount = bookCount,
+                        customFolders = customFolders,
+                        onCreateFolder = onCreateFolder,
+                        onRenameFolder = onRenameFolder,
+                        onDeleteFolder = onDeleteFolder
                     )
                     DrawerLayer1Item.SOURCES -> SourcesLayer2Content(
                         onFilePickerClick = onFilePickerClick,
-                        onScanSource = onScanSource
+                        onScanSource = onScanSource,
+                        allBooks = allBooks
                     )
                     DrawerLayer1Item.HISTORY -> HistoryLayer2Content()
                     DrawerLayer1Item.SETTINGS -> SettingsLayer2Content()
@@ -216,14 +235,27 @@ fun LibraryDrawerContent(
 
 // ========== Layer 2 Content Variants ==========
 
+
 @Composable
 private fun LibraryLayer2Content(
     selectedItem: LibraryDrawerItem,
     onItemClick: (LibraryDrawerItem) -> Unit,
     onModeClick: () -> Unit,
     onCreateFolderClick: () -> Unit,
-    bookCount: Int
+    bookCount: Int,
+    customFolders: List<Folder> = emptyList(),
+    onCreateFolder: (String) -> Unit = {},
+    onRenameFolder: (Folder, String) -> Unit = { _, _ -> },
+    onDeleteFolder: (Folder) -> Unit = {}
 ) {
+    // Edit mode state
+    var isEditMode by remember { mutableStateOf(false) }
+    
+    // Dialog states
+    var showCreateDialog by remember { mutableStateOf(false) }
+    var showRenameDialog by remember { mutableStateOf<Folder?>(null) }
+    var showDeleteDialog by remember { mutableStateOf<Folder?>(null) }
+    
     Column(
         modifier = Modifier
             .fillMaxHeight()
@@ -264,17 +296,40 @@ private fun LibraryLayer2Content(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
+            // Static menu items
             DrawerMenuItem(Icons.Default.GridView, "显示全部", selectedItem == LibraryDrawerItem.ALL) { onItemClick(LibraryDrawerItem.ALL) }
             DrawerMenuItem(Icons.Default.Person, "按作者显示", selectedItem == LibraryDrawerItem.AUTHOR) { onItemClick(LibraryDrawerItem.AUTHOR) }
             DrawerMenuItem(Icons.Default.ViewCarousel, "按系列显示", selectedItem == LibraryDrawerItem.SERIES) { onItemClick(LibraryDrawerItem.SERIES) }
             DrawerMenuItem(Icons.Default.CalendarToday, "按年度显示", selectedItem == LibraryDrawerItem.YEAR) { onItemClick(LibraryDrawerItem.YEAR) }
             DrawerMenuItem(Icons.Outlined.Folder, "按文件夹显示", selectedItem == LibraryDrawerItem.FOLDER) { onItemClick(LibraryDrawerItem.FOLDER) }
             DrawerMenuItem(Icons.Rounded.CollectionsBookmark, "收藏", selectedItem == LibraryDrawerItem.COLLECTIONS) { onItemClick(LibraryDrawerItem.COLLECTIONS) }
+            
+            // Custom folders section
+            if (customFolders.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "自定义文件夹",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 16.dp, bottom = 4.dp)
+                )
+                
+                customFolders.forEach { folder ->
+                    CustomFolderMenuItem(
+                        folder = folder,
+                        isSelected = false, // TODO: track custom folder selection
+                        isEditMode = isEditMode,
+                        onClick = { /* TODO: filter by custom folder */ },
+                        onRename = { showRenameDialog = folder },
+                        onDelete = { showDeleteDialog = folder }
+                    )
+                }
+            }
         }
         
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Tool Bar
+        // Tool Bar - Updated: Edit, New Folder, Night Mode
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
@@ -287,19 +342,173 @@ private fun LibraryLayer2Content(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                IconButton(onClick = { /* Sliders/Filter */ }) {
-                    Icon(Icons.Default.Settings, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                // Edit Mode Toggle
+                IconButton(onClick = { isEditMode = !isEditMode }) {
+                    Icon(
+                        if (isEditMode) Icons.Default.Check else Icons.Default.Edit, 
+                        contentDescription = if (isEditMode) "完成" else "编辑",
+                        tint = if (isEditMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
-                IconButton(onClick = onCreateFolderClick) {
+                // Create New Folder
+                IconButton(onClick = { showCreateDialog = true }) {
                     Icon(Icons.Default.CreateNewFolder, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+                // Night Mode Toggle
                 IconButton(onClick = onModeClick) {
                     Icon(Icons.Outlined.DarkMode, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
     }
+    
+    // Create Folder Dialog
+    if (showCreateDialog) {
+        FolderNameDialog(
+            title = "新建文件夹",
+            initialName = "",
+            onConfirm = { name ->
+                onCreateFolder(name)
+                showCreateDialog = false
+            },
+            onDismiss = { showCreateDialog = false }
+        )
+    }
+    
+    // Rename Folder Dialog
+    showRenameDialog?.let { folder ->
+        FolderNameDialog(
+            title = "重命名文件夹",
+            initialName = folder.name,
+            onConfirm = { newName ->
+                onRenameFolder(folder, newName)
+                showRenameDialog = null
+            },
+            onDismiss = { showRenameDialog = null }
+        )
+    }
+    
+    // Delete Confirmation Dialog
+    showDeleteDialog?.let { folder ->
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = null },
+            title = { Text("删除文件夹") },
+            text = { Text("确定要删除「${folder.name}」吗？") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDeleteFolder(folder)
+                    showDeleteDialog = null
+                }) {
+                    Text("删除", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = null }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
 }
+
+/**
+ * Custom folder menu item with edit/delete buttons
+ */
+@Composable
+private fun CustomFolderMenuItem(
+    folder: Folder,
+    isSelected: Boolean,
+    isEditMode: Boolean,
+    onClick: () -> Unit,
+    onRename: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        color = if (isSelected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Folder,
+                contentDescription = null,
+                tint = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            Text(
+                text = folder.name,
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f)
+            )
+            
+            // Edit mode actions
+            if (isEditMode) {
+                IconButton(onClick = onRename, modifier = Modifier.size(32.dp)) {
+                    Icon(
+                        Icons.Default.Edit,
+                        contentDescription = "重命名",
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = "删除",
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Folder name input dialog (for create/rename)
+ */
+@Composable
+private fun FolderNameDialog(
+    title: String,
+    initialName: String,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var folderName by remember { mutableStateOf(initialName) }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            OutlinedTextField(
+                value = folderName,
+                onValueChange = { folderName = it },
+                label = { Text("文件夹名称") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { if (folderName.isNotBlank()) onConfirm(folderName.trim()) },
+                enabled = folderName.isNotBlank()
+            ) {
+                Text("确定")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("取消")
+            }
+        }
+    )
+}
+
 
 @Composable
 private fun HistoryLayer2Content() {
@@ -324,12 +533,14 @@ private fun HistoryLayer2Content() {
 @Composable
 private fun SourcesLayer2Content(
     onFilePickerClick: () -> Unit = {},
-    onScanSource: (android.net.Uri) -> Unit = {}
+    onScanSource: (android.net.Uri) -> Unit = {},
+    allBooks: List<takagi.ru.paysage.data.model.Book> = emptyList()
 ) {
     // 使用独立的 SourcesContent 组件
     takagi.ru.paysage.ui.components.SourcesContent(
         onAddSourceClick = onFilePickerClick,
-        onScanSource = onScanSource
+        onScanSource = onScanSource,
+        allBooks = allBooks
     )
 }
 

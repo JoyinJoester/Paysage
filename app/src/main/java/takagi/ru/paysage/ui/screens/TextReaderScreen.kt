@@ -4,13 +4,16 @@ import android.app.Activity
 import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.NavigateBefore
@@ -39,7 +42,9 @@ import takagi.ru.paysage.ui.book.read.entities.TextPage
 import takagi.ru.paysage.ui.book.read.provider.TextChapterLayouter
 import takagi.ru.paysage.ui.components.reader.QuickSettingsPanel
 import takagi.ru.paysage.ui.components.reader.ReadingSettingsDialog
+import takagi.ru.paysage.ui.components.reader.SegmentedProgressBarWithLabel
 import takagi.ru.paysage.ui.components.reader.TextPageContent
+import takagi.ru.paysage.ui.components.reader.VerticalSideControl
 import takagi.ru.paysage.viewmodel.TextReaderViewModel
 import java.text.SimpleDateFormat
 import java.util.*
@@ -71,6 +76,9 @@ fun TextReaderScreen(
     var showChapterList by remember { mutableStateOf(false) }
     var showQuickSettings by remember { mutableStateOf(false) }
     var showFullSettings by remember { mutableStateOf(false) }
+    
+    // 亮度状态
+    var currentBrightness by remember { mutableFloatStateOf(0.5f) }
     
     // 视图尺寸
     var viewWidth by remember { mutableIntStateOf(0) }
@@ -104,6 +112,14 @@ fun TextReaderScreen(
     val view = LocalView.current
     val window = (view.context as? Activity)?.window
     val scope = rememberCoroutineScope()
+    
+    // 初始化亮度值
+    LaunchedEffect(window) {
+        window?.let { win ->
+            val attrs = win.attributes
+            currentBrightness = if (attrs.screenBrightness < 0) 0.5f else attrs.screenBrightness
+        }
+    }
     
     // Pager 状态
     val pagerState = rememberPagerState(
@@ -309,11 +325,20 @@ fun TextReaderScreen(
 
     // 监听页码变化并更新 ViewModel（UI 同步）
     // 只有用户主动导航后才保存进度
+    // 监听页码变化并更新 ViewModel（UI 同步）
+    // 只有用户主动导航后才保存进度
     LaunchedEffect(pagerState.currentPage) {
         val page = allPages.getOrNull(pagerState.currentPage)
         if (page != null && hasRestoredProgress) {
+            // Check if this is the last page of the last chapter
+            val isLastChapter = page.chapterIndex == uiState.totalChapters - 1
+            val pagesInChapter = allPages.count { it.chapterIndex == page.chapterIndex }
+            val isLastPageOfChapter = page.index >= pagesInChapter - 1
+            
+            val isFinished = isLastChapter && isLastPageOfChapter
+            
             // 已经恢复过进度，现在可以保存新的进度
-            viewModel.updateRealtimeProgress(page.chapterIndex, page.index + 1, allPages.size)
+            viewModel.updateRealtimeProgress(page.chapterIndex, page.index + 1, allPages.size, isFinished)
         }
     }
     
@@ -413,6 +438,27 @@ fun TextReaderScreen(
             )
         }
         
+        // [Layer 2.5] 侧边亮度/字体控制栏
+        AnimatedVisibility(
+            visible = isToolbarVisible && !uiState.isLoading && uiState.error == null && allPages.isNotEmpty(),
+            enter = slideInHorizontally { -it } + fadeIn(),
+            exit = slideOutHorizontally { -it } + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .padding(start = 8.dp)
+        ) {
+            VerticalSideControl(
+                brightness = currentBrightness,
+                onBrightnessChange = { newBrightness ->
+                    currentBrightness = newBrightness
+                },
+                fontSize = uiState.config.textSize,
+                onFontSizeChange = { newSize ->
+                    viewModel.updateConfig(uiState.config.copy(textSize = newSize))
+                }
+            )
+        }
+        
         // [Layer 3] 顶部栏
         AnimatedVisibility(
             visible = isToolbarVisible,
@@ -423,14 +469,7 @@ fun TextReaderScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                MaterialTheme.colorScheme.scrim.copy(alpha = 0.5f),
-                                Color.Transparent
-                            )
-                        )
-                    )
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                     .statusBarsPadding()
             ) {
                 CenterAlignedTopAppBar(
@@ -530,66 +569,28 @@ fun TextReaderScreen(
                     Column(
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
-                        // 页码进度条（章节进度）
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            // 计算当前章节的页面进度
-                            val currentChapterPages = allPages.filter { it.chapterIndex == currentChapterIndex }
-                            val currentPageInChapter = if (currentChapterPages.isNotEmpty()) {
-                                val currentPageIndex = allPages.getOrNull(pagerState.currentPage)?.index ?: 0
-                                currentPageIndex + 1
-                            } else {
-                                1
+                        // 计算每章页数（用于分段进度条）
+                        val chapterPageCounts = remember(allPages) {
+                            if (allPages.isEmpty()) emptyList()
+                            else {
+                                val maxChapter = allPages.maxOfOrNull { it.chapterIndex } ?: 0
+                                (0..maxChapter).map { chapterIdx ->
+                                    allPages.count { it.chapterIndex == chapterIdx }
+                                }
                             }
-                            val totalPagesInChapter = currentChapterPages.size.coerceAtLeast(1)
-                            
-                            Text(
-                                text = "$currentPageInChapter",
-                                style = MaterialTheme.typography.labelMedium
-                            )
-                            
-                            // 使用本地状态预览 Slider 位置，避免拖动时频繁跳转
-                            var sliderPosition by remember(currentPageInChapter) { 
-                                mutableFloatStateOf((currentPageInChapter - 1).toFloat()) 
-                            }
-                            
-                            Slider(
-                                value = sliderPosition,
-                                onValueChange = { newValue ->
-                                    // 仅更新本地预览状态，不执行页面跳转
-                                    sliderPosition = newValue
-                                },
-                                onValueChangeFinished = {
-                                    // 用户释放滑块时才执行页面跳转
-                                    scope.launch {
-                                        val firstPageOfChapter = allPages.indexOfFirst { it.chapterIndex == currentChapterIndex }
-                                        if (firstPageOfChapter >= 0) {
-                                            val targetPage = firstPageOfChapter + sliderPosition.toInt()
-                                            if (targetPage < allPages.size && allPages[targetPage].chapterIndex == currentChapterIndex) {
-                                                pagerState.scrollToPage(targetPage)
-                                            }
-                                        }
-                                    }
-                                },
-                                valueRange = 0f..maxOf(0f, (totalPagesInChapter - 1).toFloat()),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .padding(horizontal = 8.dp),
-                                colors = SliderDefaults.colors(
-                                    thumbColor = MaterialTheme.colorScheme.primary,
-                                    activeTrackColor = MaterialTheme.colorScheme.primary,
-                                    inactiveTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest
-                                )
-                            )
-                            
-                            Text(
-                                text = "$totalPagesInChapter",
-                                style = MaterialTheme.typography.labelMedium
-                            )
                         }
+                        
+                        // 分段式整本书进度条
+                        SegmentedProgressBarWithLabel(
+                            currentPage = pagerState.currentPage,
+                            totalPages = allPages.size,
+                            chapterPageCounts = chapterPageCounts,
+                            onPageSelected = { targetPage ->
+                                scope.launch {
+                                    pagerState.scrollToPage(targetPage)
+                                }
+                            }
+                        )
                         
                         // 控制按钮行
                         Row(
@@ -645,18 +646,38 @@ fun TextReaderScreen(
     
     // 章节列表对话框
     if (showChapterList) {
+        // 计算每章页数
+        val dialogChapterPageCounts = remember(allPages) {
+            if (allPages.isEmpty()) emptyList()
+            else {
+                val maxChapter = allPages.maxOfOrNull { it.chapterIndex } ?: 0
+                (0..maxChapter).map { chapterIdx ->
+                    allPages.count { it.chapterIndex == chapterIdx }
+                }
+            }
+        }
+        
         ChapterListDialog(
             chapterTitles = chapterTitles,
             currentChapter = currentChapterIndex,
+            chapterPageCounts = dialogChapterPageCounts,
             onChapterSelected = { chapterIndex ->
-                // 找到该章节的第一页
-                val chapterPages = allPages.filter { it.chapterIndex == chapterIndex }
-                if (chapterPages.isNotEmpty()) {
-                    val targetIndex = allPages.indexOf(chapterPages.first())
-                    scope.launch { pagerState.animateScrollToPage(targetIndex) }
-                } else {
-                    // 如果章节未加载，先加载
-                    viewModel.ensureChapterLoaded(chapterIndex)
+                // 先加载章节（如果未加载）
+                viewModel.ensureChapterLoaded(chapterIndex)
+                
+                // 尝试跳转到该章节
+                scope.launch {
+                    // 等待一小段时间让章节加载
+                    kotlinx.coroutines.delay(100)
+                    
+                    // 重新检查章节是否已加载
+                    val chapterPages = allPages.filter { it.chapterIndex == chapterIndex }
+                    if (chapterPages.isNotEmpty()) {
+                        val targetIndex = allPages.indexOf(chapterPages.first())
+                        if (targetIndex >= 0) {
+                            pagerState.animateScrollToPage(targetIndex)
+                        }
+                    }
                 }
                 showChapterList = false
             },
@@ -745,52 +766,187 @@ private fun TextReaderSystemInfo(
 }
 
 /**
- * 章节列表对话框
+ * M3E 风格章节列表底部弹窗
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChapterListDialog(
     chapterTitles: List<String>,
     currentChapter: Int,
+    chapterPageCounts: List<Int>,
     onChapterSelected: (Int) -> Unit,
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val listState = rememberLazyListState(
+        initialFirstVisibleItemIndex = (currentChapter - 2).coerceAtLeast(0)
+    )
+    
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = { Text("目录") },
-        text = {
-            LazyColumn {
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        dragHandle = { BottomSheetDefaults.DragHandle() }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.7f)
+        ) {
+            // 标题栏
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "目录",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                )
+                
+                Text(
+                    text = "${chapterTitles.size} 章",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                color = MaterialTheme.colorScheme.outlineVariant
+            )
+            
+            // 章节列表
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
                 itemsIndexed(chapterTitles) { index, title ->
                     val isSelected = index == currentChapter
-                    Surface(
-                        onClick = { onChapterSelected(index) },
-                        color = if (isSelected) 
-                            MaterialTheme.colorScheme.primaryContainer 
-                        else 
-                            Color.Transparent,
-                        shape = MaterialTheme.shapes.small,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = title.ifBlank { "第 ${index + 1} 章" },
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = if (isSelected) 
-                                MaterialTheme.colorScheme.onPrimaryContainer 
-                            else 
-                                MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(12.dp),
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
+                    val pageCount = chapterPageCounts.getOrNull(index) ?: 0
+                    
+                    ChapterListItem(
+                        index = index,
+                        title = title,
+                        pageCount = pageCount,
+                        isSelected = isSelected,
+                        onClick = {
+                            onChapterSelected(index)
+                        }
+                    )
                 }
             }
+        }
+    }
+}
+
+/**
+ * 章节列表项
+ */
+@Composable
+private fun ChapterListItem(
+    index: Int,
+    title: String,
+    pageCount: Int,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val backgroundColor by animateColorAsState(
+        targetValue = if (isSelected) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            Color.Transparent
         },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("关闭")
+        animationSpec = tween(200),
+        label = "bgColor"
+    )
+    
+    val textColor by animateColorAsState(
+        targetValue = if (isSelected) {
+            MaterialTheme.colorScheme.onPrimaryContainer
+        } else {
+            MaterialTheme.colorScheme.onSurface
+        },
+        animationSpec = tween(200),
+        label = "textColor"
+    )
+    
+    Surface(
+        onClick = onClick,
+        color = backgroundColor,
+        shape = MaterialTheme.shapes.medium,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // 章节序号
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .background(
+                        color = if (isSelected) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.surfaceContainerHighest
+                        },
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "${index + 1}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (isSelected) {
+                        MaterialTheme.colorScheme.onPrimary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                )
+            }
+            
+            // 章节标题
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = title.ifBlank { "第 ${index + 1} 章" },
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = textColor,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                
+                if (pageCount > 0) {
+                    Text(
+                        text = "$pageCount 页",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                }
+            }
+            
+            // 选中指示
+            if (isSelected) {
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = "当前章节",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
-    )
+    }
 }
 
 /**

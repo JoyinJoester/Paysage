@@ -11,14 +11,21 @@ import takagi.ru.paysage.data.model.Book
 import takagi.ru.paysage.data.model.BookFormat
 import takagi.ru.paysage.data.model.CategoryInfo
 import takagi.ru.paysage.data.model.FilterMode
+import takagi.ru.paysage.data.model.Folder
+import takagi.ru.paysage.data.model.GroupInfo
+import takagi.ru.paysage.data.model.ModuleType
 import takagi.ru.paysage.data.model.SyncOptions
 import takagi.ru.paysage.data.model.SyncType
+import takagi.ru.paysage.data.PaysageDatabase
 import takagi.ru.paysage.repository.BookRepository
 import takagi.ru.paysage.repository.LibraryStatistics
 import takagi.ru.paysage.repository.ScanResult
 import takagi.ru.paysage.repository.SettingsRepository
 import takagi.ru.paysage.repository.SyncOptionsRepository
+import takagi.ru.paysage.ui.components.BookSourcesManager
+import takagi.ru.paysage.ui.components.LibraryDrawerItem
 import java.io.File
+import java.util.Calendar
 
 /**
  * 书库 ViewModel
@@ -28,10 +35,15 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     internal val repository = BookRepository(application)
     private val syncOptionsRepository = SyncOptionsRepository(application)
     private val settingsRepository = SettingsRepository(application)
+    private val folderDao = PaysageDatabase.getDatabase(application).folderDao()
     
     // 保存最后扫描的文件夹 URI
     private val _lastScannedUri = MutableStateFlow<android.net.Uri?>(null)
     val lastScannedUri: StateFlow<android.net.Uri?> = _lastScannedUri.asStateFlow()
+    
+    // 自定义文件夹列表
+    private val _customFolders = MutableStateFlow<List<Folder>>(emptyList())
+    val customFolders: StateFlow<List<Folder>> = _customFolders.asStateFlow()
     
     // 书籍列表
     val allBooks: StateFlow<List<Book>> = repository.getAllBooksFlow()
@@ -113,10 +125,125 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
                     }
                 }
                 FilterMode.CATEGORIES -> flowOf(emptyList()) // 分类列表视图不显示书籍
+                // 分组模式也返回全部书籍（分组显示由 groupedBooks 处理）
+                FilterMode.AUTHOR, FilterMode.SERIES, FilterMode.YEAR, FilterMode.SOURCE_FOLDER -> allBooks
             }
         }
         .catch { emit(emptyList()) } // 发生错误时返回空列表
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    
+    // ========== 分组数据流 ==========
+    
+    /**
+     * 按作者分组的书籍
+     */
+    val groupedByAuthor: StateFlow<List<GroupInfo>> = allBooks
+        .map { books ->
+            books.groupBy { it.author ?: "未知作者" }
+                .map { (author, bookList) ->
+                    GroupInfo(
+                        name = author,
+                        bookCount = bookList.size,
+                        books = bookList.sortedBy { it.title }
+                    )
+                }
+                .sortedBy { it.name }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    
+    /**
+     * 按系列分组的书籍（使用 category 字段作为系列）
+     */
+    val groupedBySeries: StateFlow<List<GroupInfo>> = allBooks
+        .map { books ->
+            books.groupBy { it.category ?: "未分类系列" }
+                .map { (series, bookList) ->
+                    GroupInfo(
+                        name = series,
+                        bookCount = bookList.size,
+                        books = bookList.sortedBy { it.title }
+                    )
+                }
+                .sortedBy { it.name }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    
+    /**
+     * 按年度分组的书籍（使用添加时间的年份）
+     */
+    val groupedByYear: StateFlow<List<GroupInfo>> = allBooks
+        .map { books ->
+            books.groupBy { book ->
+                val calendar = Calendar.getInstance()
+                calendar.timeInMillis = book.addedAt
+                calendar.get(Calendar.YEAR).toString()
+            }
+                .map { (year, bookList) ->
+                    GroupInfo(
+                        name = "${year}年",
+                        bookCount = bookList.size,
+                        books = bookList.sortedByDescending { it.addedAt }
+                    )
+                }
+                .sortedByDescending { it.name }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    
+    /**
+     * 按书源文件夹分组的书籍
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val groupedBySourceFolder: StateFlow<List<GroupInfo>> = allBooks
+        .map { books ->
+            val context = getApplication<android.app.Application>()
+            val sources = BookSourcesManager.loadSources(context)
+            
+            // 将书籍按书源分组
+            val grouped = mutableMapOf<String, MutableList<Book>>()
+            
+            books.forEach { book ->
+                // 查找该书籍所属的书源
+                val source = sources.find { source ->
+                    book.filePath.startsWith(source.uri) || book.filePath.contains(source.uri)
+                }
+                val folderName = source?.displayName ?: "其他"
+                grouped.getOrPut(folderName) { mutableListOf() }.add(book)
+            }
+            
+            grouped.map { (folder, bookList) ->
+                GroupInfo(
+                    name = folder,
+                    bookCount = bookList.size,
+                    books = bookList.sortedBy { it.title }
+                )
+            }.sortedBy { it.name }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    
+    /**
+     * 根据当前筛选模式获取分组数据
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val currentGroupedBooks: StateFlow<List<GroupInfo>> = filterMode
+        .flatMapLatest { mode ->
+            when (mode) {
+                FilterMode.AUTHOR -> groupedByAuthor
+                FilterMode.SERIES -> groupedBySeries
+                FilterMode.YEAR -> groupedByYear
+                FilterMode.SOURCE_FOLDER -> groupedBySourceFolder
+                else -> flowOf(emptyList())
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    
+    /**
+     * 判断当前是否为分组显示模式
+     */
+    val isGroupedMode: StateFlow<Boolean> = filterMode
+        .map { mode ->
+            mode in listOf(FilterMode.AUTHOR, FilterMode.SERIES, FilterMode.YEAR, FilterMode.SOURCE_FOLDER)
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
     
     // 统计信息
     private val _statistics = MutableStateFlow<LibraryStatistics?>(null)
@@ -124,6 +251,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     
     init {
         loadStatistics()
+        loadCustomFolders()
         // 从设置中加载最后扫描的URI
         viewModelScope.launch {
             settingsRepository.settingsFlow.collect { settings ->
@@ -133,6 +261,61 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
             }
         }
     }
+    
+    // ========== 自定义文件夹操作 ==========
+    
+    /**
+     * 加载自定义文件夹
+     */
+    private fun loadCustomFolders() {
+        viewModelScope.launch {
+            val folders = folderDao.getFoldersByPath("library", ModuleType.LOCAL_MANAGEMENT)
+            _customFolders.value = folders
+        }
+    }
+    
+    /**
+     * 创建自定义文件夹
+     */
+    fun createCustomFolder(name: String) {
+        viewModelScope.launch {
+            val folder = Folder(
+                name = name,
+                path = "library/$name",
+                parentPath = "library",
+                moduleType = ModuleType.LOCAL_MANAGEMENT,
+                createdAt = System.currentTimeMillis()
+            )
+            folderDao.insert(folder)
+            loadCustomFolders()
+        }
+    }
+    
+    /**
+     * 重命名自定义文件夹
+     */
+    fun renameCustomFolder(folder: Folder, newName: String) {
+        viewModelScope.launch {
+            val updatedFolder = folder.copy(
+                name = newName,
+                path = "library/$newName",
+                updatedAt = System.currentTimeMillis()
+            )
+            folderDao.update(updatedFolder)
+            loadCustomFolders()
+        }
+    }
+    
+    /**
+     * 删除自定义文件夹
+     */
+    fun deleteCustomFolder(folder: Folder) {
+        viewModelScope.launch {
+            folderDao.deleteById(folder.id)
+            loadCustomFolders()
+        }
+    }
+
     
     /**
      * 搜索书籍
@@ -462,6 +645,21 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     fun setFilterMode(mode: FilterMode, category: String? = null) {
         _filterMode.value = mode
         _selectedCategory.value = category
+    }
+    
+    /**
+     * 从 LibraryDrawerItem 设置显示模式
+     * 用于连接 UI 菜单项
+     */
+    fun setLibraryDisplayMode(item: LibraryDrawerItem) {
+        when (item) {
+            LibraryDrawerItem.ALL -> setFilterMode(FilterMode.ALL)
+            LibraryDrawerItem.AUTHOR -> setFilterMode(FilterMode.AUTHOR)
+            LibraryDrawerItem.SERIES -> setFilterMode(FilterMode.SERIES)
+            LibraryDrawerItem.YEAR -> setFilterMode(FilterMode.YEAR)
+            LibraryDrawerItem.FOLDER -> setFilterMode(FilterMode.SOURCE_FOLDER)
+            LibraryDrawerItem.COLLECTIONS -> setFilterMode(FilterMode.FAVORITES)
+        }
     }
     
     /**

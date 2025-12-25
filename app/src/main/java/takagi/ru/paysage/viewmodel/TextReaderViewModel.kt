@@ -242,7 +242,7 @@ class TextReaderViewModel(application: Application) : AndroidViewModel(applicati
      * 更新实时阅读进度（滑动翻页时调用）
      * 只更新状态和数据库，不触发内容加载
      */
-    fun updateRealtimeProgress(chapterIndex: Int, currentPageInBook: Int, totalPagesInBook: Int) {
+    fun updateRealtimeProgress(chapterIndex: Int, currentPageInBook: Int, totalPagesInBook: Int, isFinished: Boolean = false) {
         val currentState = _uiState.value
         
         // 如果章节变了，更新章节索引
@@ -267,7 +267,7 @@ class TextReaderViewModel(application: Application) : AndroidViewModel(applicati
         if (bookId != null && bookId > 0) {
             viewModelScope.launch(Dispatchers.IO) {
                 // 保存当前章节作为进度
-                bookRepository.updateReadingProgress(bookId, chapterIndex)
+                bookRepository.updateReadingProgress(bookId, chapterIndex, isFinished)
             }
         }
     }

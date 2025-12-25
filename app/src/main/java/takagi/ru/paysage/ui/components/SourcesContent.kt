@@ -19,12 +19,16 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.FolderOpen
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -48,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.documentfile.provider.DocumentFile
 import org.json.JSONArray
 import org.json.JSONObject
+import takagi.ru.paysage.data.model.Book
 
 /**
  * Local source display model for UI
@@ -116,10 +121,14 @@ object BookSourcesManager {
  * 
  * @param onScanSource Callback to trigger scanning of the source URI
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SourcesContent(
     onAddSourceClick: () -> Unit = {},
     onScanSource: (android.net.Uri) -> Unit = {},
+    isSyncing: Boolean = false,
+    syncingSourceId: Long? = null,
+    allBooks: List<Book> = emptyList(),
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -132,6 +141,16 @@ fun SourcesContent(
         val savedSources = BookSourcesManager.loadSources(context)
         localSources.clear()
         localSources.addAll(savedSources)
+    }
+    
+    // 计算每个书源的书籍数量
+    val sourceBookCounts = remember(allBooks, localSources.toList()) {
+        localSources.associate { source ->
+            source.id to allBooks.count { book ->
+                book.filePath.startsWith(source.uri) ||
+                book.filePath.contains(source.uri)
+            }
+        }
     }
     
     // 新书源命名对话框状态
@@ -250,8 +269,11 @@ fun SourcesContent(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 localSources.forEach { source ->
+                    val bookCount = sourceBookCounts[source.id] ?: 0
                     SourceItemCard(
                         source = source,
+                        bookCount = bookCount,
+                        isSyncing = isSyncing && (syncingSourceId == null || syncingSourceId == source.id),
                         onEdit = {
                             editingSource = source
                             editName = source.displayName
@@ -260,6 +282,10 @@ fun SourcesContent(
                         onDelete = {
                             deletingSource = source
                             showDeleteDialog = true
+                        },
+                        onSync = {
+                            val uri = android.net.Uri.parse(source.uri)
+                            onScanSource(uri)
                         }
                     )
                 }
@@ -433,69 +459,163 @@ fun SourcesContent(
 @Composable
 private fun SourceItemCard(
     source: LocalSourceItem,
+    bookCount: Int = 0,
+    isSyncing: Boolean = false,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onSync: () -> Unit
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surfaceContainer
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(12.dp)
         ) {
-            // Folder icon
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = MaterialTheme.colorScheme.primaryContainer,
-                modifier = Modifier.size(40.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(contentAlignment = Alignment.Center, modifier = Modifier.size(40.dp)) {
+                // Folder icon with optional sync indicator
+                Box(contentAlignment = Alignment.Center) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(40.dp)) {
+                            Icon(
+                                imageVector = Icons.Outlined.Folder,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
+                    if (isSyncing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(48.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.width(12.dp))
+                
+                // Name and book count
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = source.displayName,
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                    Text(
+                        text = if (isSyncing) "同步中..." else "$bookCount 本书",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (isSyncing) 
+                            MaterialTheme.colorScheme.primary 
+                        else 
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                
+                // Sync button
+                IconButton(
+                    onClick = onSync, 
+                    modifier = Modifier.size(36.dp),
+                    enabled = !isSyncing
+                ) {
                     Icon(
-                        imageVector = Icons.Outlined.Folder,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "同步",
+                        modifier = Modifier.size(18.dp),
+                        tint = if (isSyncing) 
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                        else 
+                            MaterialTheme.colorScheme.primary
+                    )
+                }
+                
+                // Edit button
+                IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "编辑",
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                
+                // Delete button
+                IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "删除",
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.error
                     )
                 }
             }
-            
-            Spacer(modifier = Modifier.width(12.dp))
-            
-            // Name and book count
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = source.displayName,
-                    style = MaterialTheme.typography.titleSmall
-                )
-                Text(
-                    text = "${source.bookCount} 本书",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            
-            // Edit button
-            IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) {
-                Icon(
-                    imageVector = Icons.Default.Edit,
-                    contentDescription = "Edit",
-                    modifier = Modifier.size(18.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            
-            // Delete button
-            IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "Delete",
-                    modifier = Modifier.size(18.dp),
-                    tint = MaterialTheme.colorScheme.error
-                )
-            }
         }
+    }
+}
+
+/**
+ * 支持的格式展示区域
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SupportedFormatsSection() {
+    Column {
+        Text(
+            text = "支持的格式",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            // 漫画格式
+            FormatChip(label = "PDF", color = MaterialTheme.colorScheme.errorContainer)
+            FormatChip(label = "CBZ", color = MaterialTheme.colorScheme.primaryContainer)
+            FormatChip(label = "CBR", color = MaterialTheme.colorScheme.primaryContainer)
+            FormatChip(label = "CB7", color = MaterialTheme.colorScheme.primaryContainer)
+            FormatChip(label = "CBT", color = MaterialTheme.colorScheme.primaryContainer)
+            
+            // 压缩格式
+            FormatChip(label = "ZIP", color = MaterialTheme.colorScheme.tertiaryContainer)
+            FormatChip(label = "RAR", color = MaterialTheme.colorScheme.tertiaryContainer)
+            FormatChip(label = "7Z", color = MaterialTheme.colorScheme.tertiaryContainer)
+            FormatChip(label = "TAR", color = MaterialTheme.colorScheme.tertiaryContainer)
+            
+            // 小说格式
+            FormatChip(label = "EPUB", color = MaterialTheme.colorScheme.secondaryContainer)
+            FormatChip(label = "TXT", color = MaterialTheme.colorScheme.secondaryContainer)
+        }
+    }
+}
+
+/**
+ * 格式标签 Chip
+ */
+@Composable
+private fun FormatChip(
+    label: String,
+    color: androidx.compose.ui.graphics.Color
+) {
+    Surface(
+        shape = RoundedCornerShape(4.dp),
+        color = color
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+        )
     }
 }

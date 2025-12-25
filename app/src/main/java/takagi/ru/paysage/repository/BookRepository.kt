@@ -99,6 +99,9 @@ class BookRepository(private val context: Context) {
     
     suspend fun updateReadingProgress(bookId: Long, page: Int) = 
         bookDao.updateReadingProgress(bookId, page, System.currentTimeMillis())
+
+    suspend fun updateReadingProgress(bookId: Long, page: Int, isFinished: Boolean) = 
+        bookDao.updateReadingProgress(bookId, page, isFinished, System.currentTimeMillis())
     
     /**
      * 扫描并导入书籍

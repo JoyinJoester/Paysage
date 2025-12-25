@@ -11,18 +11,21 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -33,11 +36,12 @@ import takagi.ru.paysage.R
 import takagi.ru.paysage.data.model.Book
 import takagi.ru.paysage.ui.theme.ExpressiveAnimations
 import takagi.ru.paysage.util.FormatUtils
+import takagi.ru.paysage.util.UriUtils
 import java.io.File
 import kotlinx.coroutines.launch
 
 /**
- * 书籍详情头部组件
+ * 书籍详情头部组件 - M3E 风格
  * 显示封面、标题、格式标签和文件大小
  */
 @Composable
@@ -49,16 +53,16 @@ fun BookDetailHeader(
         modifier = modifier
             .fillMaxWidth()
             .padding(16.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp)
+        horizontalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        // 封面
-        Box(
+        // 封面 - 增加尺寸和圆角
+        Surface(
             modifier = Modifier
-                .width(120.dp)
-                .height(180.dp)
-                .clip(MaterialTheme.shapes.medium)
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-            contentAlignment = Alignment.Center
+                .width(130.dp)
+                .aspectRatio(0.7f),
+            shape = MaterialTheme.shapes.large,
+            color = MaterialTheme.colorScheme.surfaceContainerHighest,
+            shadowElevation = 6.dp
         ) {
             val coverExists = remember(book.coverPath) {
                 book.coverPath?.let { File(it).exists() } ?: false
@@ -68,71 +72,79 @@ fun BookDetailHeader(
                 SubcomposeAsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
                         .data(book.coverPath)
-                        .crossfade(300)
+                        .crossfade(true)
                         .memoryCacheKey(book.id.toString())
                         .build(),
                     contentDescription = book.title,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
                     loading = {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp
-                        )
+                        Box(contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
+                            )
+                        }
                     },
                     error = {
-                        Icon(
-                            Icons.Default.Book,
-                            contentDescription = null,
-                            modifier = Modifier.size(48.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    },
-                    success = {
-                        SubcomposeAsyncImageContent()
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Default.Book,
+                                contentDescription = null,
+                                modifier = Modifier.size(48.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                            )
+                        }
                     }
                 )
             } else {
-                Icon(
-                    Icons.Default.Book,
-                    contentDescription = null,
-                    modifier = Modifier.size(48.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Default.Book,
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
         }
         
         // 信息区域
         Column(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+                .weight(1f)
+                .padding(vertical = 4.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             // 标题
             Text(
                 text = book.title,
-                style = MaterialTheme.typography.titleLarge,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    lineHeight = MaterialTheme.typography.titleLarge.lineHeight * 1.1
+                ),
+                maxLines = 4,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurface
             )
             
-            // 格式和大小
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // 格式标签
-                Surface(
-                    shape = MaterialTheme.shapes.small,
-                    color = MaterialTheme.colorScheme.secondaryContainer
-                ) {
+            // 格式标签
+            AssistChip(
+                onClick = {},
+                label = { 
                     Text(
                         text = book.fileFormat.extension.uppercase(),
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
-                }
-            }
+                        fontWeight = FontWeight.Bold
+                    ) 
+                },
+                colors = AssistChipDefaults.assistChipColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    labelColor = MaterialTheme.colorScheme.onSecondaryContainer
+                ),
+                border = null,
+                modifier = Modifier.height(26.dp)
+            )
             
             // 文件大小
             Text(
@@ -148,8 +160,8 @@ fun BookDetailHeader(
 }
 
 /**
- * 快速操作按钮组件
- * 包含书架和查看按钮
+ * 快速操作按钮组件 - M3E 风格
+ * 包含收藏和阅读按钮
  */
 @Composable
 fun BookDetailActions(
@@ -162,41 +174,34 @@ fun BookDetailActions(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // 收藏按钮
-        ExpressiveButton(
+        // 收藏按钮 - OutlinedButton
+        OutlinedButton(
             onClick = onToggleFavorite,
             modifier = Modifier.weight(1f),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = if (book.isFavorite) 
-                    MaterialTheme.colorScheme.primary 
-                else 
-                    MaterialTheme.colorScheme.surface,
-                contentColor = if (book.isFavorite)
-                    MaterialTheme.colorScheme.onPrimary
-                else
-                    MaterialTheme.colorScheme.onSurface
-            )
+            contentPadding = PaddingValues(vertical = 12.dp)
         ) {
             Icon(
-                imageVector = if (book.isFavorite) Icons.Default.Star else Icons.Default.StarBorder,
+                imageVector = if (book.isFavorite) Icons.Filled.Star else Icons.Outlined.StarBorder,
                 contentDescription = null,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(18.dp),
+                tint = if (book.isFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(stringResource(R.string.book_detail_favorite))
         }
         
-        // 查看按钮
-        ExpressiveButton(
+        // 阅读按钮 - FilledTonalButton (Prominent action)
+        FilledTonalButton(
             onClick = onOpenBook,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
+            contentPadding = PaddingValues(vertical = 12.dp)
         ) {
             Icon(
                 imageVector = Icons.Default.Visibility,
                 contentDescription = null,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(18.dp)
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(stringResource(R.string.book_detail_view_book))
@@ -205,7 +210,7 @@ fun BookDetailActions(
 }
 
 /**
- * 排序选项组件
+ * 排序选项组件 - M3E 风格
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -226,45 +231,55 @@ fun BookDetailSortSection(
     val currentSortLabel = sortOptions.find { it.first == currentSort }?.second 
         ?: R.string.book_detail_sort_new
     
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = it },
+    Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
     ) {
-        OutlinedTextField(
-            value = stringResource(currentSortLabel),
-            onValueChange = {},
-            readOnly = true,
-            label = { Text(stringResource(R.string.book_detail_sort_by)) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .menuAnchor(),
-            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
-        )
-        
-        ExposedDropdownMenu(
+        ExposedDropdownMenuBox(
             expanded = expanded,
-            onDismissRequest = { expanded = false }
+            onExpandedChange = { expanded = it },
+            modifier = Modifier.fillMaxWidth()
         ) {
-            sortOptions.forEach { (value, labelRes) ->
-                DropdownMenuItem(
-                    text = { Text(stringResource(labelRes)) },
-                    onClick = {
-                        onSortChange(value)
-                        expanded = false
-                    }
+            OutlinedTextField(
+                value = stringResource(currentSortLabel),
+                onValueChange = {},
+                readOnly = true,
+                label = { Text(stringResource(R.string.book_detail_sort_by)) },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor(),
+                shape = MaterialTheme.shapes.medium,
+                colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary
                 )
+            )
+            
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                sortOptions.forEach { (value, labelRes) ->
+                    DropdownMenuItem(
+                        text = { Text(stringResource(labelRes)) },
+                        onClick = {
+                            onSortChange(value)
+                            expanded = false
+                        },
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp)
+                    )
+                }
             }
         }
     }
 }
 
 /**
- * 标签管理组件
+ * 标签管理组件 - M3E 风格
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun BookDetailTagSection(
     tags: List<String>,
@@ -272,71 +287,64 @@ fun BookDetailTagSection(
     modifier: Modifier = Modifier
 ) {
     Surface(
+        onClick = onEditTags,
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceVariant
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        tonalElevation = 1.dp
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Default.Tag,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                
-                if (tags.isEmpty()) {
-                    Text(
-                        text = stringResource(R.string.book_detail_no_tags),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Tag,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                } else {
-                    // 显示标签
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        tags.take(3).forEach { tag ->
-                            Surface(
-                                shape = MaterialTheme.shapes.small,
-                                color = MaterialTheme.colorScheme.primaryContainer
-                            ) {
-                                Text(
-                                    text = tag,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                )
-                            }
-                        }
-                        if (tags.size > 3) {
-                            Text(
-                                text = "+${tags.size - 3}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = if (tags.isEmpty()) stringResource(R.string.book_detail_no_tags) else "${tags.size} 个标签",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                 }
-            }
-            
-            IconButton(onClick = onEditTags) {
+                
                 Icon(
                     imageVector = Icons.Default.Edit,
-                    contentDescription = stringResource(R.string.book_detail_edit_tags)
+                    contentDescription = stringResource(R.string.book_detail_edit_tags),
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+            
+            if (tags.isNotEmpty()) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    tags.forEach { tag ->
+                        AssistChip(
+                            onClick = { },
+                            label = { Text(tag) },
+                            colors = AssistChipDefaults.assistChipColors(
+                                containerColor = MaterialTheme.colorScheme.surface,
+                                labelColor = MaterialTheme.colorScheme.onSurface
+                            ),
+                            border = null,
+                            shape = MaterialTheme.shapes.small
+                        )
+                    }
+                }
             }
         }
     }
@@ -355,23 +363,11 @@ fun TagEditDialog(
     var editedTags by remember { mutableStateOf(tags.toMutableList()) }
     var newTag by remember { mutableStateOf("") }
     
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            modifier = modifier,
-            shape = MaterialTheme.shapes.large,
-            color = MaterialTheme.colorScheme.surface
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Text(
-                    text = stringResource(R.string.book_detail_edit_tags),
-                    style = MaterialTheme.typography.titleLarge
-                )
-                
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.book_detail_edit_tags)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 // 现有标签
                 if (editedTags.isNotEmpty()) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -387,14 +383,17 @@ fun TagEditDialog(
                                     modifier = Modifier.weight(1f)
                                 )
                                 IconButton(
-                                    onClick = { editedTags = editedTags.toMutableList().apply { removeAt(index) } }
+                                    onClick = { editedTags = editedTags.toMutableList().apply { removeAt(index) } },
+                                    modifier = Modifier.size(32.dp)
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Close,
-                                        contentDescription = "删除标签"
+                                        contentDescription = "删除标签",
+                                        modifier = Modifier.size(18.dp)
                                     )
                                 }
                             }
+                            HorizontalDivider()
                         }
                     }
                 }
@@ -416,31 +415,27 @@ fun TagEditDialog(
                         ) {
                             Icon(Icons.Default.Add, contentDescription = stringResource(R.string.book_detail_add_tag))
                         }
-                    }
+                    },
+                    singleLine = true
                 )
-                
-                // 按钮
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    TextButton(onClick = onDismiss) {
-                        Text(stringResource(R.string.dialog_cancel))
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    TextButton(onClick = { onSave(editedTags) }) {
-                        Text(stringResource(R.string.dialog_confirm))
-                    }
-                }
             }
-        }
-    }
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(editedTags) }) {
+                Text(stringResource(R.string.dialog_confirm))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.dialog_cancel))
+            }
+        },
+        modifier = modifier
+    )
 }
 
-
 /**
- * 阅读进度组件
+ * 阅读进度组件 - M3E 风格
  */
 @Composable
 fun BookDetailProgressSection(
@@ -452,71 +447,89 @@ fun BookDetailProgressSection(
         book.currentPage.toFloat() / book.totalPages
     } else 0f
     
-    Column(
+    Surface(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        tonalElevation = 1.dp
     ) {
-        // 页码
-        Text(
-            text = "${book.currentPage}/${book.totalPages}",
-            style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        
-        // 进度条
-        LinearProgressIndicator(
-            progress = progress,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(8.dp)
-                .clip(MaterialTheme.shapes.small),
-            color = MaterialTheme.colorScheme.primary,
-            trackColor = MaterialTheme.colorScheme.surfaceVariant
-        )
-        
-        // 三列信息
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // 页数
-            Column(horizontalAlignment = Alignment.Start) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
-                    text = stringResource(R.string.book_detail_pages),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = "${book.currentPage}",
+                    style = MaterialTheme.typography.displayMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "/${book.totalPages}",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp)
                 )
             }
             
-            // 上次阅读
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = stringResource(R.string.book_detail_last_read),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            // 进度条
+            LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(12.dp)
+                    .clip(CircleShape),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant,
+            )
             
-            // 阅读状态
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = if (book.lastReadAt != null) {
-                        FormatUtils.formatRelativeTime(context, book.lastReadAt)
-                    } else {
-                        stringResource(R.string.book_detail_not_read)
-                    },
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            
+            // 底部信息
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        text = stringResource(R.string.book_detail_last_read),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = if (book.lastReadAt != null) {
+                            FormatUtils.formatRelativeTime(context, book.lastReadAt)
+                        } else {
+                            stringResource(R.string.book_detail_not_read)
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = stringResource(R.string.book_detail_pages),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "${(progress * 100).toInt()}%",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
             }
         }
     }
 }
 
 /**
- * 作者信息组件
+ * 作者信息组件 - M3E ListItem 风格
  */
 @Composable
 fun BookDetailAuthorSection(
@@ -528,41 +541,31 @@ fun BookDetailAuthorSection(
             modifier = modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),
-            shape = MaterialTheme.shapes.medium,
-            color = MaterialTheme.colorScheme.surfaceVariant
+            shape = MaterialTheme.shapes.extraLarge,
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            tonalElevation = 1.dp
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+            ListItem(
+                headlineContent = { Text(author) },
+                overlineContent = { Text(stringResource(R.string.book_detail_author)) },
+                leadingContent = {
+                    Icon(
+                        Icons.Default.Person,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                },
+                colors = ListItemDefaults.colors(
+                    containerColor = Color.Transparent
                 )
-                
-                Column {
-                    Text(
-                        text = stringResource(R.string.book_detail_author),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = author,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            }
+            )
         }
     }
 }
 
 /**
- * 文件路径组件
+ * 文件路径组件 - M3E ListItem 风格
+ * 修复 content:// URI 检测问题
  */
 @Composable
 fun BookDetailPathSection(
@@ -570,55 +573,80 @@ fun BookDetailPathSection(
     onCopyPath: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val fileExists = remember(filePath) { File(filePath).exists() }
+    val context = LocalContext.current
+    
+    // 检查文件是否存在（支持 content URI）
+    val isContentUri = filePath.startsWith("content://")
+    val fileExists = remember(filePath) {
+        if (isContentUri) {
+            UriUtils.isContentUriAccessible(context, filePath)
+        } else {
+            File(filePath).exists()
+        }
+    }
+    
+    // 获取可显示路径
+    val displayPath = remember(filePath) {
+        if (isContentUri) {
+            UriUtils.getReadablePath(context, filePath) ?: filePath
+        } else {
+            filePath
+        }
+    }
     
     Surface(
+        onClick = onCopyPath,
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .clickable(onClick = onCopyPath),
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceVariant
+            .padding(horizontal = 16.dp),
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        tonalElevation = 1.dp
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = Icons.Default.Folder,
-                contentDescription = null,
-                tint = if (fileExists) 
-                    MaterialTheme.colorScheme.onSurfaceVariant 
-                else 
-                    MaterialTheme.colorScheme.error
-            )
-            
-            Column(modifier = Modifier.weight(1f)) {
+        ListItem(
+            headlineContent = { 
                 Text(
-                    text = stringResource(R.string.book_detail_directory),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = if (fileExists) filePath else stringResource(R.string.book_detail_file_not_found),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (fileExists) 
-                        MaterialTheme.colorScheme.onSurfaceVariant 
-                    else 
-                        MaterialTheme.colorScheme.error,
+                    text = displayPath,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
+                ) 
+            },
+            overlineContent = { Text(stringResource(R.string.book_detail_directory)) },
+            leadingContent = {
+                Icon(
+                    imageVector = if (isContentUri) Icons.Outlined.FolderZip else Icons.Outlined.Folder,
+                    contentDescription = null,
+                    tint = if (fileExists) 
+                        MaterialTheme.colorScheme.primary 
+                    else 
+                        MaterialTheme.colorScheme.error
                 )
-            }
-        }
+            },
+            supportingContent = if (!fileExists) {
+                {
+                    Text(
+                        text = stringResource(R.string.book_detail_file_not_found),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            } else null,
+            trailingContent = {
+                Icon(
+                    Icons.Default.ContentCopy, 
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            colors = ListItemDefaults.colors(
+                containerColor = Color.Transparent
+            )
+        )
     }
 }
 
 /**
- * 底部操作栏组件
+ * 底部操作栏组件 - M3 BottomAppBar 风格
  */
 @Composable
 fun BookDetailBottomActions(
@@ -630,110 +658,45 @@ fun BookDetailBottomActions(
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // 收藏动画
-    var animateFavorite by remember { mutableStateOf(false) }
-    val favoriteRotation by animateFloatAsState(
-        targetValue = if (animateFavorite) 360f else 0f,
-        animationSpec = tween(400),
-        label = "favorite_rotation"
-    )
-    val favoriteScale by animateFloatAsState(
-        targetValue = if (animateFavorite) 1.3f else 1f,
-        animationSpec = tween(200),
-        label = "favorite_scale"
-    )
-    
-    LaunchedEffect(isFavorite) {
-        animateFavorite = true
-        kotlinx.coroutines.delay(400)
-        animateFavorite = false
-    }
-    
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        tonalElevation = 3.dp
+    BottomAppBar(
+        modifier = modifier,
+        containerColor = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp,
+        contentPadding = PaddingValues(horizontal = 16.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // 关闭
-            ExpressiveIconButton(
-                onClick = onClose,
-                modifier = Modifier.semantics {
-                    contentDescription = "关闭详情"
-                }
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = null
-                )
-            }
-            
-            // 收藏
-            ExpressiveIconButton(
-                onClick = {
-                    animateFavorite = true
-                    onToggleFavorite()
-                },
-                modifier = Modifier.semantics {
-                    contentDescription = if (isFavorite) "取消收藏" else "收藏"
-                }
-            ) {
-                Icon(
-                    imageVector = if (isFavorite) Icons.Default.Star else Icons.Default.StarBorder,
-                    contentDescription = null,
-                    tint = if (isFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.graphicsLayer {
-                        rotationZ = favoriteRotation
-                        scaleX = favoriteScale
-                        scaleY = favoriteScale
-                    }
-                )
-            }
-            
-            // 编辑
-            ExpressiveIconButton(
-                onClick = onEdit,
-                modifier = Modifier.semantics {
-                    contentDescription = "编辑书籍"
-                }
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Edit,
-                    contentDescription = null
-                )
-            }
-            
-            // 分享
-            ExpressiveIconButton(
-                onClick = onShare,
-                modifier = Modifier.semantics {
-                    contentDescription = "分享书籍"
-                }
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Share,
-                    contentDescription = null
-                )
-            }
-            
-            // 删除
-            ExpressiveIconButton(
-                onClick = onDelete,
-                modifier = Modifier.semantics {
-                    contentDescription = "删除书籍"
-                }
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.error
-                )
-            }
+        // 删除按钮
+        IconButton(onClick = onDelete) {
+            Icon(
+                imageVector = Icons.Default.Delete,
+                contentDescription = "删除",
+                tint = MaterialTheme.colorScheme.error
+            )
+        }
+        
+        Spacer(modifier = Modifier.weight(1f))
+        
+        // 分享按钮
+        IconButton(onClick = onShare) {
+            Icon(
+                imageVector = Icons.Default.Share,
+                contentDescription = "分享"
+            )
+        }
+        
+        // 编辑按钮
+        IconButton(onClick = onEdit) {
+            Icon(
+                imageVector = Icons.Default.Edit,
+                contentDescription = "编辑"
+            )
+        }
+        
+        // 关闭按钮
+        IconButton(onClick = onClose) {
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "关闭"
+            )
         }
     }
 }
@@ -753,11 +716,11 @@ fun DeleteConfirmDialog(
         title = { Text(stringResource(R.string.book_detail_delete_confirm_title)) },
         text = { Text(stringResource(R.string.book_detail_delete_confirm_message)) },
         confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text(
-                    stringResource(R.string.dialog_confirm),
-                    color = MaterialTheme.colorScheme.error
-                )
+            TextButton(
+                onClick = onConfirm,
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+            ) {
+                Text(stringResource(R.string.dialog_confirm))
             }
         },
         dismissButton = {
@@ -794,91 +757,101 @@ fun BookDetailBottomSheet(
     
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        modifier = modifier,
+        modifier = modifier.fillMaxWidth(),
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = MaterialTheme.colorScheme.surface,
-        shape = MaterialTheme.shapes.extraLarge
+        shape = MaterialTheme.shapes.extraLarge,
+        dragHandle = { BottomSheetDefaults.DragHandle() }
     ) {
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = 800.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = PaddingValues(bottom = 16.dp)
+        Column(
+            modifier = Modifier.fillMaxWidth()
         ) {
-            // 头部
-            item {
-                BookDetailHeader(book = book)
-            }
-            
-            // 快速操作
-            item {
-                BookDetailActions(
-                    book = book,
-                    onToggleFavorite = { onToggleFavorite(book.id) },
-                    onOpenBook = {
-                        onOpenBook(book.id)
-                        onDismiss()
-                    }
-                )
-            }
-            
-            // 排序选项
-            item {
-                BookDetailSortSection(
-                    currentSort = book.sortPreference,
-                    onSortChange = { onUpdateSortPreference(book.id, it) }
-                )
-            }
-            
-            // 标签
-            item {
-                BookDetailTagSection(
-                    tags = book.tags,
-                    onEditTags = { showTagDialog = true }
-                )
-            }
-            
-            // 阅读进度
-            item {
-                BookDetailProgressSection(book = book)
-            }
-            
-            // 作者
-            item {
-                BookDetailAuthorSection(author = book.author)
-            }
-            
-            // 文件路径
-            item {
-                BookDetailPathSection(
-                    filePath = book.filePath,
-                    onCopyPath = {
-                        FormatUtils.copyToClipboard(
-                            context,
-                            "Book Path",
-                            book.filePath
-                        )
-                        scope.launch {
-                            snackbarHostState.showSnackbar(
-                                context.getString(R.string.book_detail_path_copied)
-                            )
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f, fill = false),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = PaddingValues(bottom = 24.dp)
+            ) {
+                // 头部
+                item {
+                    BookDetailHeader(book = book)
+                }
+                
+                // 快速操作
+                item {
+                    BookDetailActions(
+                        book = book,
+                        onToggleFavorite = { onToggleFavorite(book.id) },
+                        onOpenBook = {
+                            onOpenBook(book.id)
+                            onDismiss()
                         }
-                    }
-                )
+                    )
+                }
+                
+                item {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
+                }
+                
+                // 排序选项
+                item {
+                    BookDetailSortSection(
+                        currentSort = book.sortPreference,
+                        onSortChange = { onUpdateSortPreference(book.id, it) }
+                    )
+                }
+                
+                // 标签
+                item {
+                    BookDetailTagSection(
+                        tags = book.tags,
+                        onEditTags = { showTagDialog = true }
+                    )
+                }
+                
+                // 阅读进度
+                item {
+                    BookDetailProgressSection(book = book)
+                }
+                
+                // 作者
+                item {
+                    BookDetailAuthorSection(author = book.author)
+                }
+                
+                // 文件路径
+                item {
+                    BookDetailPathSection(
+                        filePath = book.filePath,
+                        onCopyPath = {
+                            FormatUtils.copyToClipboard(
+                                context,
+                                "Book Path",
+                                book.filePath
+                            )
+                            scope.launch {
+                                snackbarHostState.showSnackbar(
+                                    context.getString(R.string.book_detail_path_copied)
+                                )
+                            }
+                        }
+                    )
+                }
             }
             
             // 底部操作栏
-            item {
-                BookDetailBottomActions(
-                    isFavorite = book.isFavorite,
-                    onClose = onDismiss,
-                    onToggleFavorite = { onToggleFavorite(book.id) },
-                    onEdit = { onEditBook(book.id) },
-                    onShare = { onShareBook(book) },
-                    onDelete = { showDeleteDialog = true }
-                )
-            }
+            BookDetailBottomActions(
+                isFavorite = book.isFavorite,
+                onClose = onDismiss,
+                onToggleFavorite = { onToggleFavorite(book.id) },
+                onEdit = { onEditBook(book.id) },
+                onShare = { onShareBook(book) },
+                onDelete = { showDeleteDialog = true }
+            )
         }
         
         // Snackbar

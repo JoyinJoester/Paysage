@@ -204,6 +204,8 @@ class FileParser(private val context: Context) {
                 "pdf" -> extractPdfPageFromUri(uri, 0)
                 "cbz", "zip" -> extractArchivePageFromUri(uri, 0)
                 "cbr", "rar" -> extractArchivePageFromUri(uri, 0)
+                "cbt", "tar" -> extractArchivePageFromUri(uri, 0)
+                "cb7", "7z" -> extractArchivePageFromUri(uri, 0)
                 "epub" -> EpubParser(context).extractCoverFromUri(uri)
                 else -> null
             }

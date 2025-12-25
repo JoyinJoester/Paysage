@@ -324,6 +324,14 @@ fun PaysageApp(
         onScanSource = { uri ->
             // 触发书籍扫描
             libraryViewModel?.scanBooksFromUri(uri)
+        },
+        customFolders = libraryViewModel?.customFolders?.collectAsState()?.value ?: emptyList(),
+        onCreateFolder = { name -> libraryViewModel?.createCustomFolder(name) },
+        onRenameFolder = { folder, newName -> libraryViewModel?.renameCustomFolder(folder, newName) },
+        onDeleteFolder = { folder -> libraryViewModel?.deleteCustomFolder(folder) },
+        onLibraryItemClick = { item ->
+            // 将菜单项点击传递给 ViewModel 以更新筛选模式
+            libraryViewModel?.setLibraryDisplayMode(item)
         }
     ) { windowSizeClass, onOpenDrawer ->
         NavHost(

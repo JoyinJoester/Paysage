@@ -110,4 +110,17 @@ object UriUtils {
         val parts = fullPath.split("/")
         return parts.lastOrNull()?.takeIf { it.isNotEmpty() } ?: fullPath
     }
+
+    /**
+     * 检查 content:// URI 是否可访问
+     */
+    fun isContentUriAccessible(context: Context, uri: String): Boolean {
+        return try {
+            val parsedUri = Uri.parse(uri)
+            context.contentResolver.openInputStream(parsedUri)?.close()
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
 }

@@ -86,6 +86,10 @@ fun LibraryScreen(
     val lastReadBook by viewModel.lastReadBook.collectAsState()
     val bookDetailUiState by viewModel.bookDetailUiState.collectAsState()
     
+    // 分组数据
+    val currentGroupedBooks by viewModel.currentGroupedBooks.collectAsState()
+    val isGroupedMode by viewModel.isGroupedMode.collectAsState()
+    
     // 权限请求
     val permissionState = rememberMultiplePermissionsState(
         permissions = listOf(
@@ -293,6 +297,27 @@ fun LibraryScreen(
                                         }
                                     }
                                 },
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                    }
+                    // 分组模式：按作者/系列/年度/文件夹显示
+                    FilterMode.AUTHOR, FilterMode.SERIES, FilterMode.YEAR, FilterMode.SOURCE_FOLDER -> {
+                        if (uiState.isScanning) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.align(Alignment.Center)
+                            )
+                        } else if (currentGroupedBooks.isEmpty()) {
+                            EmptyFilterView(
+                                filterMode = filterMode,
+                                modifier = Modifier.align(Alignment.Center)
+                            )
+                        } else {
+                            takagi.ru.paysage.ui.components.GroupedBookListView(
+                                groups = currentGroupedBooks,
+                                filterMode = filterMode,
+                                onBookClick = handleBookClick,
+                                onBookLongClick = { book -> viewModel.showBookDetail(book) },
                                 modifier = Modifier.fillMaxSize()
                             )
                         }
