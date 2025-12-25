@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import takagi.ru.paysage.data.model.PageMode
 import takagi.ru.paysage.data.model.ReaderConfig
 
 /**
@@ -310,30 +311,29 @@ private fun PageFlipSettingsTab(
         )
         
         // 翻页模式选择
-        // TODO: 重新实现翻页模式选择以使用 PageMode 枚举
-        // val pageFlipModes = listOf(
-        //     PageMode.SLIDE to "滑动",
-        //     PageMode.COVER to "覆盖",
-        //     PageMode.SIMULATION to "仿真",
-        //     PageMode.SCROLL to "滚动",
-        //     PageMode.NONE to "无动画"
-        // )
-        // 
-        // pageFlipModes.forEach { (mode, name) ->
-        //     Row(
-        //         modifier = Modifier.fillMaxWidth(),
-        //         horizontalArrangement = Arrangement.SpaceBetween,
-        //         verticalAlignment = Alignment.CenterVertically
-        //     ) {
-        //         Text(name)
-        //         RadioButton(
-        //             selected = config.pageMode == mode,
-        //             onClick = {
-        //                 onConfigChange(config.copy(pageMode = mode))
-        //             }
-        //         )
-        //     }
-        // }
+        val pageFlipModes = listOf(
+            PageMode.SLIDE to "滑动",
+            PageMode.COVER to "覆盖",
+            PageMode.SIMULATION to "仿真",
+            PageMode.SCROLL to "滚动",
+            PageMode.NONE to "无动画"
+        )
+        
+        pageFlipModes.forEach { (mode, name) ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(name)
+                RadioButton(
+                    selected = config.pageMode == mode,
+                    onClick = {
+                        onConfigChange(config.copy(pageMode = mode))
+                    }
+                )
+            }
+        }
         
         Divider()
         

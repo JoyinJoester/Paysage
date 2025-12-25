@@ -28,6 +28,7 @@ fun TwoLayerNavigationScaffold(
     onModeClick: () -> Unit = {},
     onFilePickerClick: () -> Unit = {},
     onCreateFolderClick: () -> Unit = {},
+    onScanSource: (android.net.Uri) -> Unit = {},
     bookCount: Int = 0,
     modifier: Modifier = Modifier,
     content: @Composable (windowSizeClass: WindowSizeClass, onOpenDrawer: () -> Unit) -> Unit
@@ -69,6 +70,7 @@ fun TwoLayerNavigationScaffold(
                         onHistoryClick = onHistoryClick,
                         onFilePickerClick = onFilePickerClick,
                         onCreateFolderClick = onCreateFolderClick,
+                        onScanSource = onScanSource,
                         bookCount = bookCount
                     )
                 },
@@ -96,6 +98,7 @@ fun TwoLayerNavigationScaffold(
                     onHistoryClick = onHistoryClick,
                     onFilePickerClick = onFilePickerClick,
                     onCreateFolderClick = onCreateFolderClick,
+                    onScanSource = onScanSource,
                     bookCount = bookCount,
                     modifier = Modifier.width(344.dp) // 64 + 280
                 )
@@ -134,6 +137,7 @@ fun TwoLayerNavigationScaffold(
     onLicenseClick: () -> Unit = {},
     onGithubClick: () -> Unit = {},
     onCreateFolderClick: () -> Unit = {},
+    onScanSource: (android.net.Uri) -> Unit = {},
     content: @Composable (windowSizeClass: WindowSizeClass, onOpenDrawer: () -> Unit) -> Unit
 ) {
     // 检测窗口尺寸
@@ -188,6 +192,7 @@ fun TwoLayerNavigationScaffold(
                         onHistoryClick = {},
                         onFilePickerClick = onSourceSelectionClick,
                         onCreateFolderClick = onCreateFolderClick,
+                        onScanSource = onScanSource,
                         bookCount = 0
                     )
                 },
@@ -214,6 +219,7 @@ fun TwoLayerNavigationScaffold(
                     onHistoryClick = {},
                     onFilePickerClick = onSourceSelectionClick,
                     onCreateFolderClick = onCreateFolderClick,
+                    onScanSource = onScanSource,
                     bookCount = 0,
                     modifier = Modifier.width(344.dp) // 64 + 280
                 )

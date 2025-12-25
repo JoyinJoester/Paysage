@@ -113,6 +113,9 @@ dependencies {
     implementation libs.junrar
     implementation libs.commons.compress
     
+    // EPUB is parsed manually - no external dependency needed
+    // EPUB files are ZIP archives with XML/HTML content
+    
     // Hilt Dependency Injection
     implementation libs.hilt.android
     ksp libs.hilt.compiler

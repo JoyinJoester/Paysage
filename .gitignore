@@ -17,7 +17,7 @@ captures/
 .DS_Store
 
 ## Project Specific Ignores
-legado-master/
+#legado-master/
 .kiro/
 Paysage侧边栏/
 *.zip

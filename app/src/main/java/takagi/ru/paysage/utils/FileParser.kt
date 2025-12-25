@@ -38,6 +38,7 @@ class FileParser(private val context: Context) {
             "cbr", "rar" -> getArchivePageCount(file)
             "cbt", "tar" -> getArchivePageCount(file)
             "cb7", "7z" -> getArchivePageCount(file)
+            "epub" -> EpubParser(context).getChapterCount(file)
             else -> 0
         }
     }
@@ -98,7 +99,11 @@ class FileParser(private val context: Context) {
      * 提取封面图片（第一页）
      */
     suspend fun extractCover(file: File): Bitmap? {
-        return extractPage(file, 0)
+        val extension = file.extension.lowercase()
+        return when (extension) {
+            "epub" -> EpubParser(context).extractCover(file)
+            else -> extractPage(file, 0)
+        }
     }
     
     /**
@@ -147,6 +152,7 @@ class FileParser(private val context: Context) {
                 "cbr", "rar" -> getArchivePageCountFromUri(uri)
                 "cbt", "tar" -> getArchivePageCountFromUri(uri)
                 "cb7", "7z" -> getArchivePageCountFromUri(uri)
+                "epub" -> EpubParser(context).getChapterCountFromUri(uri)
                 else -> 0
             }
         } catch (e: Exception) {
@@ -197,6 +203,8 @@ class FileParser(private val context: Context) {
             when (extension) {
                 "pdf" -> extractPdfPageFromUri(uri, 0)
                 "cbz", "zip" -> extractArchivePageFromUri(uri, 0)
+                "cbr", "rar" -> extractArchivePageFromUri(uri, 0)
+                "epub" -> EpubParser(context).extractCoverFromUri(uri)
                 else -> null
             }
         } catch (e: Exception) {

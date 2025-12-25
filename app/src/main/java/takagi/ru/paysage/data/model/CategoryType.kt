@@ -37,7 +37,7 @@ enum class CategoryType {
                 BookFormat.CBZ, BookFormat.CBR, BookFormat.CBT, 
                 BookFormat.CB7, BookFormat.ZIP, BookFormat.RAR,
                 BookFormat.TAR, BookFormat.SEVEN_ZIP -> MANGA
-                BookFormat.PDF -> NOVEL
+                BookFormat.PDF, BookFormat.EPUB, BookFormat.TXT -> NOVEL
             }
         }
     }

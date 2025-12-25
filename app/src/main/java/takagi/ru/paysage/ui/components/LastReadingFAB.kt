@@ -16,10 +16,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
+import coil.compose.SubcomposeAsyncImage
+import coil.compose.SubcomposeAsyncImageContent
 import coil.request.ImageRequest
 import takagi.ru.paysage.R
 import takagi.ru.paysage.data.model.Book
+import java.io.File
 
 /**
  * 上次阅读卡片
@@ -83,9 +85,12 @@ private fun LastReadingCard(
                 modifier = Modifier
                     .width(60.dp)
                     .fillMaxHeight()
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
             ) {
-                if (book.coverPath != null) {
-                    AsyncImage(
+                val coverExists = book.coverPath?.let { File(it).exists() } ?: false
+                
+                if (coverExists && book.coverPath != null) {
+                    SubcomposeAsyncImage(
                         model = ImageRequest.Builder(LocalContext.current)
                             .data(book.coverPath)
                             .crossfade(true)
@@ -93,14 +98,24 @@ private fun LastReadingCard(
                             .build(),
                         contentDescription = book.title,
                         modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    // 无封面时显示背景色
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                        contentScale = ContentScale.Crop,
+                        loading = {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            }
+                        },
+                        error = {
+                            // 加载失败时显示书本图标或背景
+                        },
+                        success = {
+                            SubcomposeAsyncImageContent()
+                        }
                     )
                 }
             }

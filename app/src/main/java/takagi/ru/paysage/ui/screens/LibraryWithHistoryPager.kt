@@ -17,6 +17,7 @@ import takagi.ru.paysage.viewmodel.HistoryViewModel
 @Composable
 fun LibraryWithHistoryPager(
     onBookClick: (Long) -> Unit,
+    onTextBookClick: ((Long, String) -> Unit)? = null,  // bookId, filePath - 用于EPUB/TXT
     onSettingsClick: () -> Unit,
     onOpenDrawer: (() -> Unit)? = null,
     filter: String? = null,
@@ -43,6 +44,7 @@ fun LibraryWithHistoryPager(
                 // 主页（书库）
                 LibraryScreen(
                     onBookClick = onBookClick,
+                    onTextBookClick = onTextBookClick,
                     onSettingsClick = onSettingsClick,
                     onOpenDrawer = onOpenDrawer,
                     filter = filter,

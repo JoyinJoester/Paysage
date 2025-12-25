@@ -91,6 +91,7 @@ fun LibraryDrawerContent(
     onHistoryClick: () -> Unit = {},
     onFilePickerClick: () -> Unit = {},
     onCreateFolderClick: () -> Unit = {},
+    onScanSource: (android.net.Uri) -> Unit = {},
     bookCount: Int = 0,
     modifier: Modifier = Modifier
 ) {
@@ -201,7 +202,8 @@ fun LibraryDrawerContent(
                         bookCount = bookCount
                     )
                     DrawerLayer1Item.SOURCES -> SourcesLayer2Content(
-                        onFilePickerClick = onFilePickerClick
+                        onFilePickerClick = onFilePickerClick,
+                        onScanSource = onScanSource
                     )
                     DrawerLayer1Item.HISTORY -> HistoryLayer2Content()
                     DrawerLayer1Item.SETTINGS -> SettingsLayer2Content()
@@ -321,11 +323,13 @@ private fun HistoryLayer2Content() {
 
 @Composable
 private fun SourcesLayer2Content(
-    onFilePickerClick: () -> Unit = {}
+    onFilePickerClick: () -> Unit = {},
+    onScanSource: (android.net.Uri) -> Unit = {}
 ) {
     // 使用独立的 SourcesContent 组件
     takagi.ru.paysage.ui.components.SourcesContent(
-        onAddSourceClick = onFilePickerClick
+        onAddSourceClick = onFilePickerClick,
+        onScanSource = onScanSource
     )
 }
 

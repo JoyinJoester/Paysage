@@ -1,5 +1,6 @@
 package takagi.ru.paysage.ui.components.reader
 
+import android.app.Activity
 import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -8,7 +9,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import takagi.ru.paysage.data.model.PageMode
 import takagi.ru.paysage.data.model.ReaderConfig
 
 /**
@@ -68,13 +71,12 @@ fun QuickSettingsPanel(
             )
             
             // 翻页模式快速切换
-            // TODO: 重新实现翻页模式控制以使用 PageMode 枚举
-            // PageFlipModeControl(
-            //     currentMode = config.pageMode,
-            //     onModeChange = {
-            //         onConfigChange(config.copy(pageMode = it))
-            //     }
-            // )
+            PageFlipModeControl(
+                currentMode = config.pageMode,
+                onModeChange = {
+                    onConfigChange(config.copy(pageMode = it))
+                }
+            )
             
             // 快捷开关
             QuickToggles(
@@ -89,8 +91,20 @@ fun QuickSettingsPanel(
  * 亮度控制
  */
 @Composable
-private fun BrightnessControl() {
-    var brightness by remember { mutableStateOf(0.5f) }
+private fun BrightnessControl(
+    brightness: Float = 0.5f,
+    onBrightnessChange: (Float) -> Unit = {}
+) {
+    val context = LocalContext.current
+    val window = (context as? Activity)?.window
+    
+    // 内部状态用于实时响应滑动
+    var currentBrightness by remember { mutableFloatStateOf(brightness) }
+    
+    // 同步外部值
+    LaunchedEffect(brightness) {
+        currentBrightness = brightness
+    }
     
     Column {
         Row(
@@ -110,7 +124,7 @@ private fun BrightnessControl() {
                 Text("亮度")
             }
             Text(
-                "${(brightness * 100).toInt()}%",
+                "${(currentBrightness * 100).toInt()}%",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.primary
             )
@@ -119,9 +133,20 @@ private fun BrightnessControl() {
         Spacer(modifier = Modifier.height(8.dp))
         
         Slider(
-            value = brightness,
-            onValueChange = { brightness = it },
-            valueRange = 0f..1f
+            value = currentBrightness,
+            onValueChange = { newValue ->
+                currentBrightness = newValue
+                // 实时应用亮度到窗口
+                window?.let { win ->
+                    val layoutParams = win.attributes
+                    layoutParams.screenBrightness = newValue
+                    win.attributes = layoutParams
+                }
+            },
+            onValueChangeFinished = {
+                onBrightnessChange(currentBrightness)
+            },
+            valueRange = 0.01f..1f // 最低亮度不为0，避免黑屏
         )
     }
 }
@@ -190,8 +215,8 @@ private fun FontSizeControl(
  */
 @Composable
 private fun PageFlipModeControl(
-    currentMode: String,
-    onModeChange: (String) -> Unit
+    currentMode: PageMode,
+    onModeChange: (PageMode) -> Unit
 ) {
     Column {
         Row(
@@ -213,9 +238,9 @@ private fun PageFlipModeControl(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             val modes = listOf(
-                "SLIDE" to "滑动",
-                "COVER" to "覆盖",
-                "SIMULATION" to "仿真"
+                PageMode.SLIDE to "滑动",
+                PageMode.COVER to "覆盖",
+                PageMode.SIMULATION to "仿真"
             )
             
             modes.forEach { (mode, name) ->

@@ -197,6 +197,7 @@ class MainActivity : ComponentActivity() {
                     PaysageApp(
                         navigationViewModel = navigationViewModel,
                         sourceSelectionViewModel = sourceSelectionViewModel,
+                        libraryViewModel = libraryViewModel,
                         onLocalMangaClick = { mangaFolderPickerLauncher.launch(null) },
                         onLocalReadingClick = { readingFolderPickerLauncher.launch(null) },
                         folderViewModel = folderViewModel,
@@ -212,6 +213,7 @@ class MainActivity : ComponentActivity() {
 fun PaysageApp(
     navigationViewModel: NavigationViewModel,
     sourceSelectionViewModel: takagi.ru.paysage.viewmodel.SourceSelectionViewModel,
+    libraryViewModel: takagi.ru.paysage.viewmodel.LibraryViewModel? = null,
     onLocalMangaClick: () -> Unit = {},
     onLocalReadingClick: () -> Unit = {},
     folderViewModel: FolderViewModel? = null,
@@ -318,7 +320,11 @@ fun PaysageApp(
         onGithubClick = {
             // TODO: 打开 GitHub 链接
         },
-        onCreateFolderClick = { showCreateFolderDialog = true }
+        onCreateFolderClick = { showCreateFolderDialog = true },
+        onScanSource = { uri ->
+            // 触发书籍扫描
+            libraryViewModel?.scanBooksFromUri(uri)
+        }
     ) { windowSizeClass, onOpenDrawer ->
         NavHost(
             navController = navController,
@@ -348,6 +354,9 @@ fun PaysageApp(
                 takagi.ru.paysage.ui.screens.LibraryWithHistoryPager(
                     onBookClick = { bookId ->
                         navController.navigate(Screen.Reader.createRoute(bookId))
+                    },
+                    onTextBookClick = { bookId, filePath ->
+                        navController.navigate(Screen.TextReader.createRoute(bookId, filePath))
                     },
                     onSettingsClick = {
                         // 不再需要，导航由侧边栏处理
@@ -387,6 +396,9 @@ fun PaysageApp(
                     onBookClick = { bookId ->
                         navController.navigate(Screen.Reader.createRoute(bookId))
                     },
+                    onTextBookClick = { bookId, filePath ->
+                        navController.navigate(Screen.TextReader.createRoute(bookId, filePath))
+                    },
                     onSettingsClick = {
                         // 不再需要，导航由侧边栏处理
                     },
@@ -423,6 +435,27 @@ fun PaysageApp(
             ReaderScreen(
                 bookId = bookId,
                 initialPage = page,
+                onBackClick = {
+                    navController.popBackStack()
+                }
+            )
+        }
+        
+        // 文本阅读器界面 (EPUB, TXT)
+        composable(
+            route = Screen.TextReader.route,
+            arguments = listOf(
+                navArgument("bookId") { type = NavType.LongType },
+                navArgument("filePath") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val bookId = backStackEntry.arguments?.getLong("bookId") ?: return@composable
+            val encodedPath = backStackEntry.arguments?.getString("filePath") ?: return@composable
+            val filePath = java.net.URLDecoder.decode(encodedPath, "UTF-8")
+            
+            takagi.ru.paysage.ui.screens.TextReaderScreen(
+                bookId = bookId,
+                filePath = filePath,
                 onBackClick = {
                     navController.popBackStack()
                 }

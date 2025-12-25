@@ -59,6 +59,7 @@ data class Book(
  * 书籍格式枚举
  */
 enum class BookFormat(val extension: String, val mimeType: String) {
+    // 漫画格式
     PDF("pdf", "application/pdf"),
     CBZ("cbz", "application/x-cbz"),
     CBR("cbr", "application/x-cbr"),
@@ -67,7 +68,25 @@ enum class BookFormat(val extension: String, val mimeType: String) {
     ZIP("zip", "application/zip"),
     RAR("rar", "application/x-rar-compressed"),
     TAR("tar", "application/x-tar"),
-    SEVEN_ZIP("7z", "application/x-7z-compressed");
+    SEVEN_ZIP("7z", "application/x-7z-compressed"),
+    
+    // 小说格式
+    EPUB("epub", "application/epub+zip"),
+    TXT("txt", "text/plain");
+    
+    /**
+     * 是否为文本格式（需要文本阅读器）
+     */
+    fun isTextFormat(): Boolean {
+        return this == EPUB || this == TXT
+    }
+    
+    /**
+     * 是否为图像格式（需要图像阅读器）
+     */
+    fun isImageFormat(): Boolean {
+        return !isTextFormat()
+    }
     
     companion object {
         fun fromExtension(ext: String): BookFormat? {
@@ -99,7 +118,8 @@ enum class BookReadingStatus {
 fun Book.getReadingStatus(): BookReadingStatus {
     return when {
         isFinished -> BookReadingStatus.FINISHED
-        currentPage > 0 -> BookReadingStatus.READING
+        // 如果有上次阅读时间，或者页码/章节大于0，都算阅读中
+        currentPage > 0 || lastReadAt != null -> BookReadingStatus.READING
         // 判断是否为最新（7天内添加且从未打开过的书籍）
         lastReadAt == null && System.currentTimeMillis() - addedAt < 7 * 24 * 60 * 60 * 1000 -> BookReadingStatus.LATEST
         else -> BookReadingStatus.UNREAD

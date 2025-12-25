@@ -23,7 +23,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.compose.AsyncImage
+import coil.compose.SubcomposeAsyncImage
+import coil.compose.SubcomposeAsyncImageContent
 import coil.request.ImageRequest
 import takagi.ru.paysage.viewmodel.LibraryViewModel
 import takagi.ru.paysage.data.model.Book
@@ -52,6 +53,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 @Composable
 fun LibraryScreen(
     onBookClick: (Long) -> Unit,
+    onTextBookClick: ((Long, String) -> Unit)? = null,  // bookId, filePath - 用于EPUB/TXT
     onSettingsClick: () -> Unit,
     onOpenDrawer: (() -> Unit)? = null,
     filter: String? = null,
@@ -107,6 +109,18 @@ fun LibraryScreen(
     var categoryType by remember { mutableStateOf(CategoryType.MANGA) }
     var displayMode by remember { mutableStateOf(DisplayMode.LOCAL) }
     
+    // 智能书籍点击处理 - 根据格式选择适当的阅读器
+    val handleBookClick: (Book) -> Unit = { book ->
+        if (book.fileFormat.isTextFormat() && onTextBookClick != null) {
+            // EPUB/TXT 使用文本阅读器
+            onTextBookClick(book.id, book.filePath)
+        } else {
+            // 其他格式使用图像阅读器
+            onBookClick(book.id)
+        }
+    }
+
+    
     // 同步结果 Snackbar
     LaunchedEffect(uiState.syncResult) {
         uiState.syncResult?.let { result ->
@@ -139,7 +153,7 @@ fun LibraryScreen(
                 lastReadBook = lastReadBook,
                 onClick = {
                     lastReadBook?.let { book ->
-                        onBookClick(book.id)
+                        handleBookClick(book)
                     }
                 }
             )
@@ -301,7 +315,7 @@ fun LibraryScreen(
                                     BookListView(
                                         books = filteredBooks,
                                         showProgress = settings.showProgress,
-                                        onBookClick = onBookClick,
+                                        onBookClick = handleBookClick,
                                         onBookLongClick = { book -> viewModel.showBookDetail(book) },
                                         modifier = Modifier.fillMaxSize()
                                     )
@@ -311,7 +325,7 @@ fun LibraryScreen(
                                         books = filteredBooks,
                                         gridColumns = settings.gridColumns,
                                         showProgress = settings.showProgress,
-                                        onBookClick = onBookClick,
+                                        onBookClick = handleBookClick,
                                         onBookLongClick = { book -> viewModel.showBookDetail(book) },
                                         modifier = Modifier.fillMaxSize()
                                     )
@@ -321,7 +335,7 @@ fun LibraryScreen(
                                         books = filteredBooks,
                                         gridColumns = settings.gridColumns,
                                         showProgress = settings.showProgress,
-                                        onBookClick = onBookClick,
+                                        onBookClick = handleBookClick,
                                         onBookLongClick = { book -> viewModel.showBookDetail(book) },
                                         modifier = Modifier.fillMaxSize()
                                     )
@@ -417,7 +431,7 @@ fun BookGrid(
     books: List<Book>,
     gridColumns: Int = 3,
     showProgress: Boolean = true,
-    onBookClick: (Long) -> Unit,
+    onBookClick: (Book) -> Unit,
     onBookLongClick: ((Book) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -437,7 +451,7 @@ fun BookGrid(
             BookCard(
                 book = book,
                 showProgress = showProgress,
-                onClick = { onBookClick(book.id) },
+                onClick = { onBookClick(book) },
                 onLongClick = if (onBookLongClick != null) { { onBookLongClick(book) } } else null
             )
         }
@@ -490,32 +504,68 @@ private fun BookCardContent(
     book: Book,
     showProgress: Boolean
 ) {
+    // 检查封面文件是否存在
+    val coverExists = remember(book.coverPath) {
+        book.coverPath?.let { File(it).exists() } ?: false
+    }
+    
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
             // 封面图片
-            if (book.coverPath != null) {
-                AsyncImage(
+            if (coverExists && book.coverPath != null) {
+                SubcomposeAsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
                         .data(book.coverPath)
-                        .crossfade(200)  // 优化：减少动画时间
+                        .crossfade(200)
                         .memoryCacheKey("cover_${book.id}")
-                        .diskCacheKey("cover_${book.id}")  // 优化：添加磁盘缓存
-                        .size(300, 420)  // 优化：限制加载尺寸
+                        .diskCacheKey("cover_${book.id}")
+                        .size(300, 420)
                         .build(),
                     contentDescription = book.title,
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.Crop,
+                    loading = {
+                        Box(
+                            modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
+                            )
+                        }
+                    },
+                    error = {
+                        Box(
+                            modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Book,
+                                contentDescription = null,
+                                modifier = Modifier.size(48.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    },
+                    success = {
+                        SubcomposeAsyncImageContent()
+                    }
                 )
             } else {
                 // 无封面或加载失败时显示默认图标
-                Icon(
-                    Icons.Default.Book,
-                    contentDescription = null,
-                    modifier = Modifier.align(Alignment.Center)
-                        .size(48.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
+                Box(
+                    modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.Book,
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
             
             // 状态标签（左上角）
@@ -670,7 +720,7 @@ fun SearchAppBar(
 fun BookListView(
     books: List<Book>,
     showProgress: Boolean = true,
-    onBookClick: (Long) -> Unit,
+    onBookClick: (Book) -> Unit,
     onBookLongClick: ((Book) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -688,7 +738,7 @@ fun BookListView(
             BookListItem(
                 book = books[index],
                 showProgress = showProgress,
-                onClick = { onBookClick(books[index].id) },
+                onClick = { onBookClick(books[index]) },
                 onLongClick = if (onBookLongClick != null) { { onBookLongClick(books[index]) } } else null
             )
         }
@@ -746,26 +796,49 @@ private fun BookListItemContent(
                 .padding(16.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // 检查封面文件是否存在
+            val coverExists = remember(book.coverPath) {
+                book.coverPath?.let { File(it).exists() } ?: false
+            }
+            
             // 封面区域
             Box(
                 modifier = Modifier
                     .width(120.dp)
                     .height(180.dp)
-                    .clip(MaterialTheme.shapes.medium),
+                    .clip(MaterialTheme.shapes.medium)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center
             ) {
-                if (book.coverPath != null) {
-                    AsyncImage(
+                if (coverExists && book.coverPath != null) {
+                    SubcomposeAsyncImage(
                         model = ImageRequest.Builder(LocalContext.current)
                             .data(book.coverPath)
-                            .crossfade(200)  // 优化：减少动画时间
+                            .crossfade(200)
                             .memoryCacheKey("cover_${book.id}")
-                            .diskCacheKey("cover_${book.id}")  // 优化：添加磁盘缓存
-                            .size(300, 450)  // 优化：限制加载尺寸
+                            .diskCacheKey("cover_${book.id}")
+                            .size(300, 450)
                             .build(),
                         contentDescription = book.title,
                         modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
+                        contentScale = ContentScale.Crop,
+                        loading = {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
+                            )
+                        },
+                        error = {
+                            Icon(
+                                Icons.Default.Book,
+                                contentDescription = null,
+                                modifier = Modifier.size(48.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        },
+                        success = {
+                            SubcomposeAsyncImageContent()
+                        }
                     )
                 } else {
                     Icon(
@@ -944,7 +1017,7 @@ fun BookCompactGrid(
     books: List<Book>,
     gridColumns: Int = 2,
     showProgress: Boolean = true,
-    onBookClick: (Long) -> Unit,
+    onBookClick: (Book) -> Unit,
     onBookLongClick: ((Book) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -964,7 +1037,7 @@ fun BookCompactGrid(
             BookCompactCard(
                 book = book,
                 showProgress = showProgress,
-                onClick = { onBookClick(book.id) },
+                onClick = { onBookClick(book) },
                 onLongClick = if (onBookLongClick != null) { { onBookLongClick(book) } } else null
             )
         }
@@ -1014,24 +1087,56 @@ private fun BookCompactCardContent(
     book: Book,
     showProgress: Boolean
 ) {
+    // 检查封面文件是否存在
+    val coverExists = remember(book.coverPath) {
+        book.coverPath?.let { File(it).exists() } ?: false
+    }
+    
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(0.7f)
     ) {
             // 1. 封面图片层 - 填充整个卡片
-            if (book.coverPath != null) {
-                AsyncImage(
+            if (coverExists && book.coverPath != null) {
+                SubcomposeAsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
                         .data(book.coverPath)
-                        .crossfade(200)  // 优化：减少动画时间
+                        .crossfade(200)
                         .memoryCacheKey("cover_${book.id}")
-                        .diskCacheKey("cover_${book.id}")  // 优化：添加磁盘缓存
-                        .size(300, 420)  // 优化：限制加载尺寸
+                        .diskCacheKey("cover_${book.id}")
+                        .size(300, 420)
                         .build(),
                     contentDescription = book.title,
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.Crop,
+                    loading = {
+                        Box(
+                            modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(32.dp),
+                                strokeWidth = 2.dp
+                            )
+                        }
+                    },
+                    error = {
+                        Box(
+                            modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Book,
+                                contentDescription = null,
+                                modifier = Modifier.size(64.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    },
+                    success = {
+                        SubcomposeAsyncImageContent()
+                    }
                 )
             } else {
                 // 无封面时显示默认图标

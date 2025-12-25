@@ -26,7 +26,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import coil.compose.AsyncImage
+import coil.compose.SubcomposeAsyncImage
+import coil.compose.SubcomposeAsyncImageContent
 import coil.request.ImageRequest
 import takagi.ru.paysage.R
 import takagi.ru.paysage.data.model.Book
@@ -55,11 +56,16 @@ fun BookDetailHeader(
             modifier = Modifier
                 .width(120.dp)
                 .height(180.dp)
-                .clip(MaterialTheme.shapes.medium),
+                .clip(MaterialTheme.shapes.medium)
+                .background(MaterialTheme.colorScheme.surfaceVariant),
             contentAlignment = Alignment.Center
         ) {
-            if (book.coverPath != null) {
-                AsyncImage(
+            val coverExists = remember(book.coverPath) {
+                book.coverPath?.let { File(it).exists() } ?: false
+            }
+            
+            if (coverExists && book.coverPath != null) {
+                SubcomposeAsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
                         .data(book.coverPath)
                         .crossfade(300)
@@ -67,7 +73,24 @@ fun BookDetailHeader(
                         .build(),
                     contentDescription = book.title,
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.Crop,
+                    loading = {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp
+                        )
+                    },
+                    error = {
+                        Icon(
+                            Icons.Default.Book,
+                            contentDescription = null,
+                            modifier = Modifier.size(48.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    },
+                    success = {
+                        SubcomposeAsyncImageContent()
+                    }
                 )
             } else {
                 Icon(

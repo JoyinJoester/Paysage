@@ -18,7 +18,10 @@ class FileScanner(private val context: Context) {
     
     companion object {
         private val SUPPORTED_EXTENSIONS = setOf(
-            "pdf", "cbz", "cbr", "cbt", "cb7", "zip", "rar", "tar", "7z"
+            // 漫画格式
+            "pdf", "cbz", "cbr", "cbt", "cb7", "zip", "rar", "tar", "7z",
+            // 小说格式
+            "epub", "txt"
         )
     }
     

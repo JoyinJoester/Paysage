@@ -21,6 +21,13 @@ sealed class Screen(val route: String) {
             }
         }
     }
+    object TextReader : Screen("text_reader/{bookId}/{filePath}") {
+        fun createRoute(bookId: Long, filePath: String): String {
+            // 对文件路径进行 URL 编码
+            val encodedPath = java.net.URLEncoder.encode(filePath, "UTF-8")
+            return "text_reader/$bookId/$encodedPath"
+        }
+    }
     object Settings : Screen("settings?section={section}") {
         fun createRoute(section: String? = null): String {
             return if (section != null) {

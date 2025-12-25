@@ -113,10 +113,13 @@ object BookSourcesManager {
 /**
  * Book Sources content panel for the drawer Layer 2.
  * Displays and manages local folder sources with integrated folder picker.
+ * 
+ * @param onScanSource Callback to trigger scanning of the source URI
  */
 @Composable
 fun SourcesContent(
     onAddSourceClick: () -> Unit = {},
+    onScanSource: (android.net.Uri) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -313,6 +316,9 @@ fun SourcesContent(
                             
                             // 保存到 SharedPreferences
                             BookSourcesManager.saveSources(context, localSources.toList())
+                            
+                            // 触发扫描
+                            onScanSource(uri)
                         }
                         showNameDialog = false
                         pendingUri = null
