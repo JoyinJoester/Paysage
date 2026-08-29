@@ -18,3 +18,8 @@ local.properties
 临时目录/
 # Gradle 子模块构建产物
 build/
+
+# release 签名配置(本地文件,勿提交)
+keystore.properties
+*.jks
+*.keystore

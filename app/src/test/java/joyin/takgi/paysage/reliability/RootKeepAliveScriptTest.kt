@@ -21,6 +21,10 @@ class RootEnhancementCommandsTest {
         assertTrue(script.contains("am start-foreground-service -n \$SERVICE"))
         assertTrue(script.contains("sleep 20"))
         assertTrue(script.contains("pm list packages -e \$PKG"))
+        // 包连续缺失约 10 分钟后自删脚本,避免卸载应用后留下孤儿循环
+        assertTrue(script.contains("MISSING=\$((MISSING+1))"))
+        assertTrue(script.contains("rm -f \"\$SCRIPT\""))
+        assertTrue(script.contains("exit 0"))
     }
 
     @Test

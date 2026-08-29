@@ -17,10 +17,20 @@ object RootKeepAliveScript {
         # Paysage root keep-alive watchdog (installed by the app)
         PKG=$packageName
         SERVICE=$packageName/$keepAliveServiceClass
+        SCRIPT=$SCRIPT_PATH
+        # 连续 30 次(约 10 分钟)检测不到包即认为应用已卸载/禁用,脚本自删,避免孤儿进程
+        MISSING=0
         while true; do
             if pm list packages -e ${'$'}PKG 2>/dev/null | grep -q ${'$'}PKG; then
+                MISSING=0
                 if ! pidof ${'$'}PKG >/dev/null 2>&1; then
                     am start-foreground-service -n ${'$'}SERVICE >/dev/null 2>&1
+                fi
+            else
+                MISSING=${'$'}((MISSING+1))
+                if [ "${'$'}MISSING" -ge 30 ]; then
+                    rm -f "${'$'}SCRIPT"
+                    exit 0
                 fi
             fi
             sleep $CHECK_INTERVAL_SECONDS

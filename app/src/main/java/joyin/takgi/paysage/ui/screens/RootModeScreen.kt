@@ -15,6 +15,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -53,6 +54,10 @@ fun RootModeScreen(onBackClick: () -> Unit) {
         busy = true
         rootAvailable = RootShell.isAvailable()
         busy = false
+    }
+    // 离开页面即关闭持久 su 会话,不留存 root shell
+    DisposableEffect(Unit) {
+        onDispose { RootShell.close() }
     }
 
     fun requireRoot(): Boolean {

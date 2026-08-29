@@ -1,6 +1,7 @@
 import com.android.build.gradle.internal.api.BaseVariantOutputImpl
 import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.Properties
 import java.util.TimeZone
 import java.util.regex.Pattern
 
@@ -17,7 +18,6 @@ android {
         version = release(36)
     }
 
-    val appVersionCode = 1
     val baseVersionName = "1.0.0"
     val apkPrefix = "Paysage"
     val packagedAbiTags = listOf("arm64-v8a", "armeabi-v7a")
@@ -71,7 +71,7 @@ android {
     val buildTimeZone = TimeZone.getTimeZone("Asia/Shanghai")
     val buildDateTag = SimpleDateFormat("yyMMdd").apply { timeZone = buildTimeZone }.format(Date())
     val buildTime = SimpleDateFormat("yyyy-MM-dd HH:mm:ss z").apply { timeZone = buildTimeZone }.format(Date())
-    val buildVersionTag = normalizeTwoDigits(project.findProperty("apkVersionTag") ?: appVersionCode)
+    val buildVersionTag = normalizeTwoDigits(project.findProperty("apkVersionTag") ?: 1)
     val versionNameTag = sanitizeTag(project.findProperty("apkVersionName") ?: baseVersionName, "0.0.0")
     val buildDailySeq = normalizeTwoDigits(
         project.findProperty("dailySeq")
@@ -79,6 +79,12 @@ android {
     )
     val buildDetailTag = "$buildDateTag$buildVersionTag-$buildDailySeq"
     val fullVersionName = "$baseVersionName-$buildDetailTag"
+
+    // versionCode 随构建日单调自增:epoch 天数 * 100 + 当日序号。
+    // 每天构建都会比前一天大,同日多次构建按序号递增,满足商店递增要求。
+    val appVersionCode = ((System.currentTimeMillis() / 86_400_000L).toInt() * 100) +
+        (buildDailySeq.toIntOrNull() ?: 1)
+
     val declaredApkArch = sanitizeTag(
         project.findProperty("apkArch") ?: packagedAbiTags.sorted().joinToString("+"),
         packagedAbiTags.sorted().joinToString("+")
@@ -105,6 +111,24 @@ android {
         buildConfigField("String", "GIT_SHA", "\"${escapeForBuildConfig(currentGitSha)}\"")
     }
 
+    // release 签名:仓库根目录放 keystore.properties(已 gitignore)即自动签名,
+    // 内容:storeFile=绝对或相对路径 / storePassword / keyAlias / keyPassword
+    val keystoreProperties = Properties().apply {
+        val file = rootProject.file("keystore.properties")
+        if (file.exists()) file.inputStream().use { load(it) }
+    }
+
+    signingConfigs {
+        if (keystoreProperties.getProperty("storeFile") != null) {
+            create("release") {
+                storeFile = rootProject.file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -113,6 +137,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.findByName("release")
         }
     }
     compileOptions {

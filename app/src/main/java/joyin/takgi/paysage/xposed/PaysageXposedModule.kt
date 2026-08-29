@@ -6,6 +6,7 @@ import android.telephony.SmsMessage
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
 import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
+import joyin.takgi.paysage.BuildConfig
 
 /**
  * LSPosed 模块入口:hook com.android.phone 里短信入站处理,在系统
@@ -88,8 +89,9 @@ class PaysageXposedModule(base: io.github.libxposed.api.XposedContext, param: Mo
     companion object {
         const val TAG = "PaysageXposed"
         const val TARGET_PACKAGE = "com.android.phone"
-        const val APP_PACKAGE = "joyin.takgi.paysage"
-        const val ACTION_XPOSED_SMS = "$APP_PACKAGE.action.XPOSED_SMS"
+        // 包名由构建注入,改 applicationId(如加 .debug 后缀)时桥接不失效
+        val APP_PACKAGE = BuildConfig.APPLICATION_ID
+        val ACTION_XPOSED_SMS = "${APP_PACKAGE}.action.XPOSED_SMS"
         const val BRIDGE_PERMISSION = "android.permission.MODIFY_PHONE_STATE"
         const val EXTRA_SENDER = "sender"
         const val EXTRA_CONTENT = "content"

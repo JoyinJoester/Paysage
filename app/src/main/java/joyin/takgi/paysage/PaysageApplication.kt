@@ -3,6 +3,7 @@ package joyin.takgi.paysage
 import android.app.Application
 import android.content.Context
 import androidx.appcompat.app.AppCompatDelegate
+import joyin.takgi.paysage.reliability.root.RootShell
 import joyin.takgi.paysage.ui.theme.AppLanguage
 import joyin.takgi.paysage.ui.theme.LanguageSettingsStore
 import joyin.takgi.paysage.ui.theme.toLocaleListCompat
@@ -17,6 +18,12 @@ class PaysageApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         applyLanguageSettings()
+    }
+
+    override fun onTerminate() {
+        // 应用进程被系统终止时关闭持久 su 会话(正常退出场景由 RootMode 页面处理)
+        RootShell.close()
+        super.onTerminate()
     }
 
     private fun applyLanguageSettings() {

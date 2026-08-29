@@ -19,7 +19,7 @@
 
 ## 概览
 
-**Paysage** 是一款 Android 短信转发与设备管理工具。它可以把收到的短信直接从本机转发到邮箱或 Telegram，不经过中间服务器；也可以通过授权邮箱或 Telegram Bot 发送 `/paysage ...` 指令，远程开关短信转发、查看设备状态和触发重试。
+**Paysage** 是一款 Android 短信/彩信转发与设备管理工具。它可以把收到的消息直接从本机转发到邮箱、Telegram、Bark、钉钉、飞书、企业微信或任意 Webhook，不经过中间服务器；也可以通过授权邮箱或 Telegram Bot 发送 `/paysage ...` 指令，远程开关短信转发、查看设备状态和触发重试。
 
 应用重点解决短信转发类工具常见痛点：后台被杀、Doze 延迟、网络失败漏发、权限复杂、用户不知道当前是否正常运行。
 
@@ -30,9 +30,12 @@
 ### 短信转发
 - **Email 转发**：支持 Gmail、自定义 SMTP、密码/授权码、XOAUTH2。
 - **Telegram 转发**：通过 Telegram Bot API 直接发送到指定 Chat ID。
-- **本地直发**：设备直接连接 SMTP/Telegram，不经过 Paysage 中间服务器。
-- **过滤规则**：支持号码白名单，避免无关短信被转发。
+- **Webhook 类通道**：通用 Webhook、Bark、Server酱、钉钉机器人、飞书机器人、企业微信机器人，全部本地直发。
+- **MMS 彩信**：自动提取彩信文本转发（纯媒体彩信跳过），与短信走同一套去重链路。
+- **本地直发**：设备直接连接各通道，不经过 Paysage 中间服务器。
+- **过滤规则**：号码黑白名单、正文关键词、正则规则，避免无关消息被转发。
 - **转发总开关**：可以在 App 内关闭，也可以通过远程指令开关。
+- **防重发**：多链路采集 + 分段合并 + 入口去重，长短信不会被拆成多条转发。
 
 ### 稳定性与保活
 - **Foreground Service**：稳定守护前台服务保持监听与重试链路。
@@ -40,6 +43,21 @@
 - **SMS Broadcast + ContentObserver + 无障碍增强**：多链路减少漏消息。
 - **离线缓存与自动补发**：网络不可用或发送失败时进入缓存，恢复后重试。
 - **健康仪表盘**：首页显示成功率、缓存、后台限制和潜在问题。
+
+### Root 增强（可选）
+- **一键授权**：root 执行 `pm grant`、appops 放行与电池白名单，免去手动权限页。
+- **看门狗保活**：写入 Magisk service.d 脚本，每 20 秒检查并拉起转发服务，重启后依然生效；应用卸载后脚本自动自删。
+- **短信库兜底**：广播与观察器被 ROM 拦截时，直接用 root 读取系统短信收件箱作为第四条采集链路。
+- 没有_ROOT_时一切功能照常，不受影响。
+
+### LSPosed 模块（可选）
+- 基于 libxposed API（模块元数据已内置），hook `com.android.phone` 的短信分发，在 framework 层第一现场采集短信。
+- 需要设备已安装 LSPosed 并在模块作用域勾选 `com.android.phone`。
+- 桥接广播以 `MODIFY_PHONE_STATE` 权限为门槛，第三方应用无法伪造。
+
+### 网速仪表盘
+- 设置内实时查看上下行速率与 60 秒曲线，含会话流量、内网 IP、公网 IP。
+- 每秒读内核计数器做差分，被动采样零测试流量，不影响网速；仅页面停留期间检测。
 
 ### 邮件指令中心
 - **IMAP 收件箱检查**：从授权邮箱读取指令邮件。
@@ -294,6 +312,23 @@ isMinifyEnabled = true
 isShrinkResources = true
 ```
 
+### Release 签名（可选）
+
+仓库不含签名文件。需要本地签名 release 包时，在项目根目录创建 `keystore.properties`（已被 .gitignore 排除）：
+
+```properties
+storeFile=/path/to/your.jks
+storePassword=你的store密码
+keyAlias=你的alias
+keyPassword=你的key密码
+```
+
+配置后 `assembleRelease` 自动签名；没有该文件时输出未签名 APK（可用 `apksigner` 手动签名）。
+
+### versionCode 规则
+
+versionCode 按“epoch 天数 × 100 + 当日序号”自动递增，无需手动维护；每日多次构建按序号增长。
+
 ---
 
 ## 故障排查
@@ -331,15 +366,19 @@ app/src/main/java/joyin/takgi/paysage/
 ├── accessibility/          # 短信通知无障碍增强
 ├── data/                   # Room 实体和 DAO
 ├── debug/                  # 设备日志导出
+├── esim/                   # eSIM/eUICC 采集与诊断（外部卡经 lpac-jni）
 ├── mail/                   # 邮件收件箱、指令解析、执行回执
-├── receiver/               # SMS 广播接收
-├── reliability/            # 保活、重试、健康状态、后台调度
+├── receiver/               # SMS 广播与 Xposed 桥接收
+├── reliability/            # 保活、重试、分段合并、入口去重
+│   └── root/               # Root 增强：su 会话、授权、看门狗、短信库兜底
 ├── security/               # 转发账号敏感凭证加密存储
-├── sender/                 # Email / Telegram 发送器
+├── sender/                 # Email / Telegram / Webhook 类发送器
 ├── service/                # 前台服务
 ├── telegram/               # Telegram Bot 配置探测和指令轮询
 ├── ui/                     # Compose 页面、主题和动效
-└── util/                   # 通用工具
+├── util/                   # 通用工具（网速监测、公网 IP 等）
+└── xposed/                 # LSPosed 模块入口（hook com.android.phone）
+external/lpac-jni/          # lpac 的 JNI 封装（独立 Gradle 模块）
 ```
 
 ---
