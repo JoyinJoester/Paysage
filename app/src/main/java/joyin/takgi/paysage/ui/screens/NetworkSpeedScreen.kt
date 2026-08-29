@@ -231,7 +231,9 @@ fun NetworkSpeedScreen(
                     )
                 }
             }
+            }
 
+            item {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -283,7 +285,9 @@ fun NetworkSpeedScreen(
                     }
                 }
             }
+            }
 
+            item {
             M3ePanel(modifier = Modifier.fillMaxWidth()) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
@@ -320,7 +324,9 @@ fun NetworkSpeedScreen(
                     }
                 }
             }
+            }
 
+            item {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -369,7 +375,9 @@ fun NetworkSpeedScreen(
                     }
                 }
             }
+            }
 
+            item {
             Text(
                 text = stringResource(R.string.summary_network_speed_page),
                 style = MaterialTheme.typography.bodySmall,
