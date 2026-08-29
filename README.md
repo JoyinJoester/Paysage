@@ -2,13 +2,12 @@
 
 <div align="center">
 
-**中文**
-
-![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white)
-![Kotlin](https://img.shields.io/badge/Kotlin-2.0-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)
+![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=flat-square&logo=android&logoColor=white)
+![Kotlin](https://img.shields.io/badge/Kotlin-2.0-7F52FF?style=flat-square&logo=kotlin&logoColor=white)
 ![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203-4285F4?style=flat-square&logo=jetpackcompose&logoColor=white)
-![Local First](https://img.shields.io/badge/Local--First-SMS%20Forwarding-0F766E?style=for-the-badge)
+![Local First](https://img.shields.io/badge/Local--First-SMS%20Forwarding-0F766E?style=flat-square)
 ![CI](https://img.shields.io/badge/CI-GitHub%20Actions-2088FF?style=flat-square&logo=githubactions&logoColor=white)
+![License](https://img.shields.io/badge/License-GPL--3.0-EA4AAA?style=flat-square)
 
 <p><strong>短信/彩信转发、远程指令、设备仪表盘——为热点机打造的常驻管家</strong></p>
 <p>Android · Local Direct · Email / Telegram / Webhook · Root & LSPosed Optional</p>
