@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Colorize
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Security
@@ -67,6 +68,7 @@ fun SettingsScreen(
     onColorSchemeClick: () -> Unit,
     onBatteryAlertSettingsClick: () -> Unit,
     onRootModeClick: () -> Unit,
+    onNetworkSpeedClick: () -> Unit,
     appearanceSettings: PaysageAppearanceSettings,
     onAppearanceSettingsChange: (PaysageAppearanceSettings) -> Unit,
     currentLanguage: AppLanguage,
@@ -149,6 +151,12 @@ fun SettingsScreen(
                         title = stringResource(R.string.screen_root_mode_title),
                         subtitle = stringResource(R.string.summary_root_mode_entry),
                         onClick = onRootModeClick
+                    )
+                    M3eSettingsNavigationItem(
+                        icon = Icons.Default.Speed,
+                        title = stringResource(R.string.screen_network_speed_title),
+                        subtitle = stringResource(R.string.summary_network_speed_entry),
+                        onClick = onNetworkSpeedClick
                     )
                     M3eSettingsNavigationItem(
                         icon = Icons.Default.BugReport,

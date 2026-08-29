@@ -36,6 +36,7 @@ import joyin.takgi.paysage.ui.screens.ForwardingSettingsScreen
 import joyin.takgi.paysage.ui.screens.HomeScreen
 import joyin.takgi.paysage.ui.screens.LogScreen
 import joyin.takgi.paysage.ui.screens.MailInboxScreen
+import joyin.takgi.paysage.ui.screens.NetworkSpeedScreen
 import joyin.takgi.paysage.ui.screens.PermissionManagementScreen
 import joyin.takgi.paysage.ui.screens.RootModeScreen
 import joyin.takgi.paysage.ui.screens.SettingsScreen
@@ -124,6 +125,7 @@ class MainActivity : ComponentActivity() {
                                         onColorSchemeClick = { navController.navigate("colorScheme") },
                                         onBatteryAlertSettingsClick = { navController.navigate("batteryAlertSettings") },
                                         onRootModeClick = { navController.navigate("rootMode") },
+                                        onNetworkSpeedClick = { navController.navigate("networkSpeed") },
                                         appearanceSettings = appearanceSettings,
                                         onAppearanceSettingsChange = { nextSettings ->
                                             appearanceSettings = nextSettings
@@ -166,6 +168,11 @@ class MainActivity : ComponentActivity() {
                             }
                             composable("rootMode") {
                                 RootModeScreen(
+                                    onBackClick = { navController.popBackStack() }
+                                )
+                            }
+                            composable("networkSpeed") {
+                                NetworkSpeedScreen(
                                     onBackClick = { navController.popBackStack() }
                                 )
                             }
