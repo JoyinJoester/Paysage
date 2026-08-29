@@ -1194,6 +1194,14 @@
     <string name="screen_network_speed_title">设备仪表盘</string>
     <string name="summary_network_speed_entry">实时网速监测(被动采样,仅本页面运行)</string>
     <string name="title_net_speed">网络速度</string>
+    <string name="action_push_status">推送当前网络状态</string>
+    <string name="dialog_push_status_title">推送当前状态到</string>
+    <string name="push_target_telegram">Telegram</string>
+    <string name="push_target_email">邮箱</string>
+    <string name="action_send">发送</string>
+    <string name="message_push_done">已推送。</string>
+    <string name="message_push_failed">推送失败,请检查转发账号与网络。</string>
+    <string name="message_push_no_channel">尚未配置可用的邮箱或 Telegram 转发账号。</string>
     <string name="title_latency">延迟</string>
     <string name="status_latency_measuring">…</string>
     <string name="status_latency_timeout">超时</string>

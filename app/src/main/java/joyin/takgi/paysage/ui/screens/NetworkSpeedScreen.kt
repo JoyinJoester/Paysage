@@ -15,6 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -38,13 +39,16 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import joyin.takgi.paysage.R
+import joyin.takgi.paysage.reliability.ForwardAccountAlertSender
 import joyin.takgi.paysage.ui.components.M3eActionButton
+import joyin.takgi.paysage.ui.components.M3eAlertDialog
 import joyin.takgi.paysage.ui.components.M3ePanel
 import joyin.takgi.paysage.ui.components.M3eTopBar
 import joyin.takgi.paysage.util.DeviceStatus
 import joyin.takgi.paysage.util.DeviceStatusCollector
 import joyin.takgi.paysage.util.LatencyProbe
 import joyin.takgi.paysage.util.NetworkSpeedMonitor
+import joyin.takgi.paysage.util.NetworkSpeedSnapshot
 import joyin.takgi.paysage.util.PublicIpChecker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -74,6 +78,55 @@ fun NetworkSpeedScreen(
     var deviceStatus by remember { mutableStateOf<DeviceStatus?>(null) }
     var latencyMs by remember { mutableStateOf<Long?>(null) }
     var latencyMeasuring by remember { mutableStateOf(true) }
+    var statusMessage by remember { mutableStateOf("") }
+    var showPushDialog by remember { mutableStateOf(false) }
+    val alertSender = remember { ForwardAccountAlertSender(context) }
+
+    fun refreshPublicIp() {
+        scope.launch {
+            publicIp = ""
+            publicIpStatus = context.getString(R.string.status_public_ip_loading)
+            PublicIpChecker.fetch()
+                .onSuccess {
+                    publicIp = it
+                    publicIpStatus = ""
+                }
+                .onFailure {
+                    publicIp = ""
+                    publicIpStatus = context.getString(
+                        R.string.status_public_ip_failed_reason,
+                        it.message?.take(120) ?: context.getString(R.string.status_public_ip_failed)
+                    )
+                }
+        }
+    }
+
+    fun pushTo(useEmail: Boolean, useTelegram: Boolean) {
+        scope.launch {
+            val report = buildStatusReport(context, snapshot, deviceStatus, lanIps, publicIp, latencyMs)
+            val ok = alertSender.sendTo(
+                subject = "Paysage ${context.getString(R.string.screen_network_speed_title)}",
+                body = report,
+                useEmail = useEmail,
+                useTelegram = useTelegram
+            )
+            statusMessage = context.getString(
+                if (ok) R.string.message_push_done else R.string.message_push_failed
+            )
+        }
+    }
+
+    fun onPushClick() {
+        scope.launch {
+            val (emailConfigured, telegramConfigured) = alertSender.configuredTargets()
+            when {
+                !emailConfigured && !telegramConfigured ->
+                    statusMessage = context.getString(R.string.message_push_no_channel)
+                emailConfigured && telegramConfigured -> showPushDialog = true
+                else -> pushTo(useEmail = emailConfigured, useTelegram = telegramConfigured)
+            }
+        }
+    }
 
     // 采样协程绑定本页面生命周期:离开页面协程被取消,自动停止检测
     LaunchedEffect(Unit) {
@@ -98,19 +151,7 @@ fun NetworkSpeedScreen(
                 delay(10_000L)
             }
         }
-        publicIpStatus = context.getString(R.string.status_public_ip_loading)
-        PublicIpChecker.fetch()
-            .onSuccess {
-                publicIp = it
-                publicIpStatus = ""
-            }
-            .onFailure {
-                publicIp = ""
-                publicIpStatus = context.getString(
-                    R.string.status_public_ip_failed_reason,
-                    it.message?.take(120) ?: context.getString(R.string.status_public_ip_failed)
-                )
-            }
+        refreshPublicIp()
     }
 
     Scaffold(
@@ -130,6 +171,20 @@ fun NetworkSpeedScreen(
                     }
                 } else {
                     null
+                },
+                actions = {
+                    IconButton(onClick = ::refreshPublicIp) {
+                        Icon(
+                            Icons.Default.Refresh,
+                            contentDescription = stringResource(R.string.action_refresh_public_ip)
+                        )
+                    }
+                    IconButton(onClick = ::onPushClick) {
+                        Icon(
+                            Icons.Default.Send,
+                            contentDescription = stringResource(R.string.action_push_status)
+                        )
+                    }
                 }
             )
         }
@@ -306,33 +361,123 @@ fun NetworkSpeedScreen(
                 }
             }
 
-            M3eActionButton(
-                text = stringResource(R.string.action_refresh_public_ip),
-                icon = Icons.Default.Refresh,
-                modifier = Modifier.fillMaxWidth(),
-                onClick = {
-                    scope.launch {
-                        publicIp = ""
-                        publicIpStatus = context.getString(R.string.status_public_ip_loading)
-                        PublicIpChecker.fetch()
-                            .onSuccess { result ->
-                                publicIp = result
-                                publicIpStatus = ""
-                            }
-                            .onFailure {
-                                publicIpStatus = context.getString(R.string.status_public_ip_failed)
-                            }
-                    }
-                }
-            )
-
             Text(
                 text = stringResource(R.string.summary_network_speed_page),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+
+            if (statusMessage.isNotBlank()) {
+                Text(
+                    text = statusMessage,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
         }
     }
+
+    if (showPushDialog) {
+        PushTargetDialog(
+            onDismiss = { showPushDialog = false },
+            onConfirm = { useEmail, useTelegram -> pushTo(useEmail, useTelegram) }
+        )
+    }
+}
+
+@Composable
+private fun PushTargetDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (useEmail: Boolean, useTelegram: Boolean) -> Unit
+) {
+    var useEmail by remember { mutableStateOf(true) }
+    var useTelegram by remember { mutableStateOf(true) }
+
+    M3eAlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.dialog_push_status_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                DialogCheckboxRow(
+                    label = stringResource(R.string.push_target_telegram),
+                    checked = useTelegram,
+                    onCheckedChange = { useTelegram = it }
+                )
+                DialogCheckboxRow(
+                    label = stringResource(R.string.push_target_email),
+                    checked = useEmail,
+                    onCheckedChange = { useEmail = it }
+                )
+            }
+        },
+        confirmButton = {
+            androidx.compose.material3.TextButton(
+                onClick = {
+                    onDismiss()
+                    if (useEmail || useTelegram) {
+                        onConfirm(useEmail, useTelegram)
+                    }
+                }
+            ) { Text(stringResource(R.string.action_send)) }
+        },
+        dismissButton = {
+            androidx.compose.material3.TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.action_cancel))
+            }
+        }
+    )
+}
+
+@Composable
+private fun DialogCheckboxRow(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyLarge)
+        androidx.compose.material3.Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+private fun buildStatusReport(
+    context: android.content.Context,
+    snapshot: NetworkSpeedSnapshot,
+    deviceStatus: DeviceStatus?,
+    lanIps: List<String>,
+    publicIp: String,
+    latencyMs: Long?
+): String = buildString {
+    appendLine(context.getString(R.string.screen_network_speed_title))
+    appendLine()
+    appendLine("${context.getString(R.string.label_upload)}: ${formatBytesPerSec(snapshot.uploadBytesPerSec)}")
+    appendLine("${context.getString(R.string.label_download)}: ${formatBytesPerSec(snapshot.downloadBytesPerSec)}")
+    appendLine(
+        "${context.getString(R.string.title_session_traffic)}: " +
+            "↑${formatBytes(snapshot.uploadTotalBytes)} / ↓${formatBytes(snapshot.downloadTotalBytes)}"
+    )
+    appendLine("${context.getString(R.string.title_latency)}: ${latencyMs?.toString() ?: "-"} ms")
+    deviceStatus?.let { status ->
+        appendLine("${context.getString(R.string.label_battery_level)}: ${status.batteryLevel}%")
+        appendLine(
+            "${context.getString(R.string.label_battery_temperature)}: " +
+                String.format(java.util.Locale.US, "%.1f ℃", status.batteryTemperature)
+        )
+        appendLine(
+            "${context.getString(R.string.label_charging)}: " +
+                context.getString(
+                    if (status.isCharging) R.string.value_charging_yes else R.string.value_charging_no
+                )
+        )
+    }
+    appendLine("${context.getString(R.string.title_lan_ip)}: ${lanIps.joinToString().ifBlank { "-" }}")
+    appendLine("${context.getString(R.string.title_public_ip)}: ${publicIp.ifBlank { "-" }}")
+    appendLine()
+    appendLine(java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date()))
 }
 
 @Composable

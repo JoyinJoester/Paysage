@@ -1204,6 +1204,14 @@
     <string name="screen_network_speed_title">デバイスダッシュボード</string>
     <string name="summary_network_speed_entry">リアルタイム速度測定(パッシブ、このページのみ)</string>
     <string name="title_net_speed">通信速度</string>
+    <string name="action_push_status">現在の状態を推送</string>
+    <string name="dialog_push_status_title">現在の状態の推送先</string>
+    <string name="push_target_telegram">Telegram</string>
+    <string name="push_target_email">メール</string>
+    <string name="action_send">送信</string>
+    <string name="message_push_done">推送しました。</string>
+    <string name="message_push_failed">推送に失敗しました。転送アカウントとネットワークを確認してください。</string>
+    <string name="message_push_no_channel">利用可能なメール/TG転送アカウントが未設定です。</string>
     <string name="title_latency">レイテンシ</string>
     <string name="status_latency_measuring">…</string>
     <string name="status_latency_timeout">タイムアウト</string>

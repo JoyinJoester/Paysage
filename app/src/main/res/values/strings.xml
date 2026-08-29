@@ -1209,6 +1209,14 @@
     <string name="screen_network_speed_title">Device Dashboard</string>
     <string name="summary_network_speed_entry">Real-time speed dashboard (passive, page-scoped)</string>
     <string name="title_net_speed">Network Speed</string>
+    <string name="action_push_status">Push network status</string>
+    <string name="dialog_push_status_title">Push current status to</string>
+    <string name="push_target_telegram">Telegram</string>
+    <string name="push_target_email">Email</string>
+    <string name="action_send">Send</string>
+    <string name="message_push_done">Status pushed.</string>
+    <string name="message_push_failed">Push failed; check the forwarding account and network.</string>
+    <string name="message_push_no_channel">No usable Email/Telegram forwarding account configured.</string>
     <string name="title_latency">Latency</string>
     <string name="status_latency_measuring">…</string>
     <string name="status_latency_timeout">Timeout</string>
