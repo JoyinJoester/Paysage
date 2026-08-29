@@ -4,9 +4,10 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.provider.Telephony
-import joyin.takgi.paysage.reliability.SmsForwardDispatcher
+import android.telephony.SmsMessage
 import joyin.takgi.paysage.reliability.SmsForwardRequest
 import joyin.takgi.paysage.reliability.SmsReliabilityManager
+import joyin.takgi.paysage.reliability.SmsSegmentBuffer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -20,16 +21,8 @@ class SmsReceiver : BroadcastReceiver() {
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     SmsReliabilityManager.ensureScheduled(context)
-                    messages.forEach { smsMessage ->
-                        val request = SmsForwardRequest(
-                            sender = smsMessage.displayOriginatingAddress.orEmpty(),
-                            content = smsMessage.displayMessageBody.orEmpty(),
-                            timestamp = smsMessage.timestampMillis,
-                            source = "broadcast"
-                        )
-                        if (request.sender.isNotBlank() && request.content.isNotBlank()) {
-                            SmsForwardDispatcher.dispatch(context, request)
-                        }
+                    messages.toForwardRequests().forEach { request ->
+                        SmsSegmentBuffer.enqueue(context, request)
                     }
                 } finally {
                     pendingResult.finish()
@@ -37,4 +30,26 @@ class SmsReceiver : BroadcastReceiver() {
             }
         }
     }
+
+    private fun Array<SmsMessage>.toForwardRequests(): List<SmsForwardRequest> =
+        filter { message ->
+            message.displayOriginatingAddress?.isNotBlank() == true &&
+                message.displayMessageBody?.isNotBlank() == true
+        }
+            .groupBy { message -> message.displayOriginatingAddress.orEmpty() }
+            .mapNotNull { (sender, parts) ->
+                val content = parts.joinToString(separator = "") { part ->
+                    part.displayMessageBody.orEmpty()
+                }.trim()
+                if (content.isBlank()) {
+                    null
+                } else {
+                    SmsForwardRequest(
+                        sender = sender,
+                        content = content,
+                        timestamp = parts.minOfOrNull { it.timestampMillis } ?: System.currentTimeMillis(),
+                        source = "broadcast"
+                    )
+                }
+            }
 }
