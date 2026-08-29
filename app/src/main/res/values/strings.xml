@@ -92,6 +92,17 @@
     <string name="action_runtime_details">Runtime Details</string>
     <string name="action_filter_rules">Filter Rules</string>
     <string name="action_forward_logs">Forward Logs</string>
+    <string name="screen_log_detail_title">Log Detail</string>
+    <string name="message_log_not_found">Log entry no longer exists (it may have been cleaned up by the retention policy).</string>
+    <string name="title_add_sender_filter">Filter by sender</string>
+    <string name="action_add_sender_blacklist">Add to number blacklist</string>
+    <string name="action_add_sender_whitelist">Add to number whitelist</string>
+    <string name="title_pick_words_to_filter">Pick words to block</string>
+    <string name="summary_pick_words_to_filter">Tap words from the message content to select them; each selected word becomes its own keyword block rule.</string>
+    <string name="action_add_keywords_empty">Select words first</string>
+    <string name="format_add_keywords">Add %1$d keyword rules</string>
+    <string name="message_filter_added">Filter rule added.</string>
+    <string name="format_keywords_added">%1$d keyword rule(s) added.</string>
     <string name="action_settings">Settings</string>
     <string name="message_stable_mode_started">Stable guardian, auto-retry, and background checks started.</string>
     <string name="message_retry_scheduled">Immediate retry scheduled.</string>

@@ -93,6 +93,17 @@
     <string name="action_runtime_details">Детали выполнения</string>
     <string name="action_filter_rules">Правила фильтрации</string>
     <string name="action_forward_logs">Журналы пересылки</string>
+    <string name="screen_log_detail_title">Детали записи</string>
+    <string name="message_log_not_found">Запись больше не существует (возможно, удалена политикой хранения).</string>
+    <string name="title_add_sender_filter">Фильтр по отправителю</string>
+    <string name="action_add_sender_blacklist">В чёрный список номеров</string>
+    <string name="action_add_sender_whitelist">В белый список номеров</string>
+    <string name="title_pick_words_to_filter">Выбрать слова для блокировки</string>
+    <string name="summary_pick_words_to_filter">Нажимайте слова из текста, чтобы выбрать их; каждое выбранное слово станет отдельным ключевым правилом.</string>
+    <string name="action_add_keywords_empty">Сначала выберите слова</string>
+    <string name="format_add_keywords">Добавить правил: %1$d</string>
+    <string name="message_filter_added">Правило фильтра добавлено.</string>
+    <string name="format_keywords_added">Добавлено ключевых правил: %1$d.</string>
     <string name="action_settings">Настройки</string>
     <string name="message_stable_mode_started">Стабильный мониторинг, автоповтор и фоновые проверки запущены.</string>
     <string name="message_retry_scheduled">Немедленный повтор запланирован.</string>

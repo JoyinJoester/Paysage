@@ -16,6 +16,9 @@ class FilterRepository(private val filterDao: FilterDao) {
 
     suspend fun delete(rule: FilterRule) = filterDao.delete(rule)
 
+    suspend fun exists(type: FilterType, value: String): Boolean =
+        filterDao.findFirstByTypeAndValue(type, value) != null
+
     suspend fun shouldForward(sender: String, content: String): Boolean {
         val rules = allRules.first()
             .filter { it.isEnabled }

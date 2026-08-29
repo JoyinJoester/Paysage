@@ -34,6 +34,7 @@ import joyin.takgi.paysage.ui.screens.DeveloperSettingsScreen
 import joyin.takgi.paysage.ui.screens.FilterScreen
 import joyin.takgi.paysage.ui.screens.ForwardingSettingsScreen
 import joyin.takgi.paysage.ui.screens.HomeScreen
+import joyin.takgi.paysage.ui.screens.LogDetailScreen
 import joyin.takgi.paysage.ui.screens.LogScreen
 import joyin.takgi.paysage.ui.screens.MailInboxScreen
 import joyin.takgi.paysage.ui.screens.NetworkSpeedScreen
@@ -142,7 +143,17 @@ class MainActivity : ComponentActivity() {
                                 FilterScreen(onBackClick = { navController.popBackStack() })
                             }
                             composable("logs") {
-                                LogScreen(onBackClick = { navController.popBackStack() })
+                                LogScreen(
+                                    onBackClick = { navController.popBackStack() },
+                                    onLogClick = { logId -> navController.navigate("logDetail/$logId") }
+                                )
+                            }
+                            composable("logDetail/{logId}") { backStackEntry ->
+                                val logId = backStackEntry.arguments?.getString("logId")?.toIntOrNull() ?: 0
+                                LogDetailScreen(
+                                    logId = logId,
+                                    onBackClick = { navController.popBackStack() }
+                                )
                             }
                             composable("accounts") {
                                 AccountsScreen(

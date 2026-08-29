@@ -26,4 +26,7 @@ interface FilterDao {
 
     @Query("SELECT * FROM filter_rules WHERE type = :type AND isEnabled = 1")
     suspend fun getByType(type: FilterType): List<FilterRule>
+
+    @Query("SELECT * FROM filter_rules WHERE type = :type AND value = :value LIMIT 1")
+    suspend fun findFirstByTypeAndValue(type: FilterType, value: String): FilterRule?
 }

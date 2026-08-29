@@ -24,4 +24,7 @@ interface ForwardLogDao {
 
     @Query("DELETE FROM forward_logs WHERE timestamp < :cutoffTime")
     suspend fun deleteOlderThan(cutoffTime: Long)
+
+    @Query("SELECT * FROM forward_logs WHERE id = :id")
+    suspend fun getById(id: Int): ForwardLog?
 }

@@ -93,6 +93,17 @@
     <string name="action_runtime_details">実行詳細</string>
     <string name="action_filter_rules">フィルタルール</string>
     <string name="action_forward_logs">転送ログ</string>
+    <string name="screen_log_detail_title">転送詳細</string>
+    <string name="message_log_not_found">このログは存在しません(保持ポリシーで削除された可能性)。</string>
+    <string name="title_add_sender_filter">発信者でフィルター</string>
+    <string name="action_add_sender_blacklist">番号ブラックリストに追加</string>
+    <string name="action_add_sender_whitelist">番号ホワイトリストに追加</string>
+    <string name="title_pick_words_to_filter">語句を選んでブロック</string>
+    <string name="summary_pick_words_to_filter">本文の語句をタップして選択すると、選択した語句ごとにキーワードブロックルールを作成します。</string>
+    <string name="action_add_keywords_empty">先に語句を選択</string>
+    <string name="format_add_keywords">%1$d 件のキーワードルールを追加</string>
+    <string name="message_filter_added">フィルタールールを追加しました。</string>
+    <string name="format_keywords_added">%1$d 件のキーワードルールを追加しました。</string>
     <string name="action_settings">設定</string>
     <string name="message_stable_mode_started">安定監視、自動再試行、バックグラウンドチェックを開始しました。</string>
     <string name="message_retry_scheduled">即時再試行をスケジュールしました。</string>

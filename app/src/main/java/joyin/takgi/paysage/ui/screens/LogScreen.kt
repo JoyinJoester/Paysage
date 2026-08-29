@@ -1,5 +1,6 @@
 package joyin.takgi.paysage.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -21,7 +22,7 @@ import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LogScreen(onBackClick: () -> Unit) {
+fun LogScreen(onBackClick: () -> Unit, onLogClick: (Int) -> Unit = {}) {
     val context = LocalContext.current
     val logDao = remember { AppDatabase.getDatabase(context).forwardLogDao() }
     val logs by logDao.getRecent().collectAsState(initial = emptyList())
@@ -55,7 +56,7 @@ fun LogScreen(onBackClick: () -> Unit) {
                     .padding(padding)
             ) {
                 items(logs) { log ->
-                    LogItem(log)
+                    LogItem(log = log, onClick = { onLogClick(log.id) })
                 }
             }
         }
@@ -63,12 +64,13 @@ fun LogScreen(onBackClick: () -> Unit) {
 }
 
 @Composable
-fun LogItem(log: ForwardLog) {
+fun LogItem(log: ForwardLog, onClick: () -> Unit = {}) {
     val context = LocalContext.current
     M3ePanel(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
+            .clickable { onClick() }
     ) {
         Column(
             modifier = Modifier

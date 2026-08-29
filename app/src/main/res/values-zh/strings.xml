@@ -93,6 +93,17 @@
     <string name="action_runtime_details">运行详情</string>
     <string name="action_filter_rules">过滤规则</string>
     <string name="action_forward_logs">转发日志</string>
+    <string name="screen_log_detail_title">转发详情</string>
+    <string name="message_log_not_found">该日志已不存在(可能被保留策略清理)。</string>
+    <string name="title_add_sender_filter">按号码过滤</string>
+    <string name="action_add_sender_blacklist">加入号码黑名单</string>
+    <string name="action_add_sender_whitelist">加入号码白名单</string>
+    <string name="title_pick_words_to_filter">选词屏蔽</string>
+    <string name="summary_pick_words_to_filter">点选正文中的词,每个选中的词会各生成一条关键词屏蔽规则。</string>
+    <string name="action_add_keywords_empty">先点选词语</string>
+    <string name="format_add_keywords">添加 %1$d 条关键词规则</string>
+    <string name="message_filter_added">过滤规则已添加。</string>
+    <string name="format_keywords_added">已添加 %1$d 条关键词规则。</string>
     <string name="action_settings">设置</string>
     <string name="message_stable_mode_started">稳定守护、自动重试和后台检查已启动。</string>
     <string name="message_retry_scheduled">已安排立即重试。</string>
