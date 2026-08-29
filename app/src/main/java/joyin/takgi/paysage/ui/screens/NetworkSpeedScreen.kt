@@ -41,6 +41,7 @@ import joyin.takgi.paysage.ui.components.M3ePanel
 import joyin.takgi.paysage.ui.components.M3eTopBar
 import joyin.takgi.paysage.util.DeviceStatus
 import joyin.takgi.paysage.util.DeviceStatusCollector
+import joyin.takgi.paysage.util.LatencyProbe
 import joyin.takgi.paysage.util.NetworkSpeedMonitor
 import joyin.takgi.paysage.util.PublicIpChecker
 import kotlinx.coroutines.Dispatchers
@@ -69,6 +70,8 @@ fun NetworkSpeedScreen(
     var publicIpStatus by remember { mutableStateOf("") }
     var lanIps by remember { mutableStateOf<List<String>>(emptyList()) }
     var deviceStatus by remember { mutableStateOf<DeviceStatus?>(null) }
+    var latencyMs by remember { mutableStateOf<Long?>(null) }
+    var latencyMeasuring by remember { mutableStateOf(true) }
 
     // 采样协程绑定本页面生命周期:离开页面协程被取消,自动停止检测
     LaunchedEffect(Unit) {
@@ -82,6 +85,15 @@ fun NetworkSpeedScreen(
                     DeviceStatusCollector.collectStatus(context)
                 }
                 delay(3_000L)
+            }
+        }
+        // 延迟每 10 秒探测一次(generate_204,几十字节)
+        launch {
+            while (true) {
+                latencyMeasuring = true
+                latencyMs = LatencyProbe.measure()
+                latencyMeasuring = false
+                delay(10_000L)
             }
         }
         publicIpStatus = context.getString(R.string.status_public_ip_loading)
@@ -154,21 +166,45 @@ fun NetworkSpeedScreen(
                 }
             }
 
-            M3ePanel(modifier = Modifier.fillMaxWidth()) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(
-                        text = stringResource(R.string.title_session_traffic),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    TrafficLine(
-                        label = stringResource(R.string.label_upload),
-                        value = formatBytes(snapshot.uploadTotalBytes)
-                    )
-                    TrafficLine(
-                        label = stringResource(R.string.label_download),
-                        value = formatBytes(snapshot.downloadTotalBytes)
-                    )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                M3ePanel(modifier = Modifier.weight(1f)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = stringResource(R.string.title_session_traffic),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        TrafficLine(
+                            label = stringResource(R.string.label_upload),
+                            value = formatBytes(snapshot.uploadTotalBytes)
+                        )
+                        TrafficLine(
+                            label = stringResource(R.string.label_download),
+                            value = formatBytes(snapshot.downloadTotalBytes)
+                        )
+                    }
+                }
+                M3ePanel(modifier = Modifier.weight(1f)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = stringResource(R.string.title_latency),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = when {
+                                latencyMeasuring -> stringResource(R.string.status_latency_measuring)
+                                latencyMs != null -> "$latencyMs ms"
+                                else -> stringResource(R.string.status_latency_timeout)
+                            },
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = latencyColor(latencyMs)
+                        )
+                    }
                 }
             }
 
@@ -350,6 +386,13 @@ private fun collectLanAddresses(): List<String> =
         }
         addresses.filter { it.isNotBlank() }.sorted()
     }.getOrDefault(emptyList())
+
+private fun latencyColor(latencyMs: Long?): androidx.compose.ui.graphics.Color = when {
+    latencyMs == null -> androidx.compose.ui.graphics.Color(0xFFF87171)
+    latencyMs < 200 -> androidx.compose.ui.graphics.Color(0xFF4ADE80)
+    latencyMs < 500 -> androidx.compose.ui.graphics.Color(0xFFFBBF24)
+    else -> androidx.compose.ui.graphics.Color(0xFFF87171)
+}
 
 private fun formatBytesPerSec(bytesPerSec: Long): String {
     if (bytesPerSec < 1024) return "$bytesPerSec B/s"

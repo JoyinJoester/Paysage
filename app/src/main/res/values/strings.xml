@@ -1209,6 +1209,9 @@
     <string name="screen_network_speed_title">Device Dashboard</string>
     <string name="summary_network_speed_entry">Real-time speed dashboard (passive, page-scoped)</string>
     <string name="title_net_speed">Network Speed</string>
+    <string name="title_latency">Latency</string>
+    <string name="status_latency_measuring">…</string>
+    <string name="status_latency_timeout">Timeout</string>
     <string name="title_session_traffic">Session Traffic</string>
     <string name="title_lan_ip">LAN IP</string>
     <string name="title_public_ip">Public IP</string>

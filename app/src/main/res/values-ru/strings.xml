@@ -1204,6 +1204,9 @@
     <string name="screen_network_speed_title">Панель состояния</string>
     <string name="summary_network_speed_entry">Панель скорости в реальном времени (пассивно, только на этой странице)</string>
     <string name="title_net_speed">Скорость сети</string>
+    <string name="title_latency">Задержка</string>
+    <string name="status_latency_measuring">…</string>
+    <string name="status_latency_timeout">Таймаут</string>
     <string name="title_session_traffic">Трафик за сессию</string>
     <string name="title_lan_ip">Локальный IP</string>
     <string name="title_public_ip">Публичный IP</string>

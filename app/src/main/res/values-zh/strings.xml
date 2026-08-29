@@ -1194,6 +1194,9 @@
     <string name="screen_network_speed_title">设备仪表盘</string>
     <string name="summary_network_speed_entry">实时网速监测(被动采样,仅本页面运行)</string>
     <string name="title_net_speed">网络速度</string>
+    <string name="title_latency">延迟</string>
+    <string name="status_latency_measuring">…</string>
+    <string name="status_latency_timeout">超时</string>
     <string name="title_session_traffic">本次流量统计</string>
     <string name="title_lan_ip">内网 IP</string>
     <string name="title_public_ip">公网 IP</string>
