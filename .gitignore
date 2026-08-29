@@ -23,3 +23,6 @@ build/
 keystore.properties
 *.jks
 *.keystore
+
+# Kotlin 编译会话缓存
+.kotlin/
