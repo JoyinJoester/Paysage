@@ -126,6 +126,11 @@ android {
         compose = true
         buildConfig = true
     }
+    sourceSets {
+        getByName("main") {
+            java.srcDir("src/vendored/java")
+        }
+    }
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -156,6 +161,8 @@ android {
 
 dependencies {
     implementation(project(":lpac-jni"))
+    // libxposed 模块 API 以源码形式 vendor 在 src/vendored(仅编译用,
+    // 运行时由 LSPosed 框架注入同名实现,不参与打包)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)

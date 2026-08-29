@@ -46,3 +46,8 @@
 -keep,includedescriptorclasses class net.typeblog.lpac_jni.** { *; }
 -keep,includedescriptorclasses class * implements net.typeblog.lpac_jni.ApduInterface { *; }
 -keep,includedescriptorclasses class * implements net.typeblog.lpac_jni.HttpInterface { *; }
+
+# libxposed module entry: the class is looked up by name from
+# META-INF/xposed/java_init.list / assets/xposed_init, keep it intact.
+-keep class joyin.takgi.paysage.xposed.PaysageXposedModule { *; }
+-dontwarn io.github.libxposed.**

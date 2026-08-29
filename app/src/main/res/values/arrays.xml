@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- LSPosed 生效范围:电话进程(hook 短信入站) -->
+    <string-array name="xposed_scope">
+        <item>com.android.phone</item>
+    </string-array>
+</resources>

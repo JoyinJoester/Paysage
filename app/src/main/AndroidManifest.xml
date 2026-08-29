@@ -30,6 +30,20 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Paysage">
 
+        <!-- Xposed 模块声明(LSPosed 兼容旧版 meta-data 与新 libxposed 资源清单) -->
+        <meta-data
+            android:name="xposedmodule"
+            android:value="true" />
+        <meta-data
+            android:name="xposeddescription"
+            android:value="@string/xposed_module_description" />
+        <meta-data
+            android:name="xposedminversion"
+            android:value="100" />
+        <meta-data
+            android:name="xposedscope"
+            android:resource="@array/xposed_scope" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -103,6 +117,15 @@
             android:permission="android.permission.BROADCAST_SMS">
             <intent-filter android:priority="999">
                 <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".receiver.XposedSmsReceiver"
+            android:exported="true"
+            android:permission="android.permission.MODIFY_PHONE_STATE">
+            <intent-filter>
+                <action android:name="joyin.takgi.paysage.action.XPOSED_SMS" />
             </intent-filter>
         </receiver>
 

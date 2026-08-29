@@ -37,6 +37,7 @@ import joyin.takgi.paysage.ui.screens.HomeScreen
 import joyin.takgi.paysage.ui.screens.LogScreen
 import joyin.takgi.paysage.ui.screens.MailInboxScreen
 import joyin.takgi.paysage.ui.screens.PermissionManagementScreen
+import joyin.takgi.paysage.ui.screens.RootModeScreen
 import joyin.takgi.paysage.ui.screens.SettingsScreen
 import joyin.takgi.paysage.ui.navigation.PaysageTab
 import joyin.takgi.paysage.ui.components.M3eScaffoldBackground
@@ -122,6 +123,7 @@ class MainActivity : ComponentActivity() {
                                         onDeveloperSettingsClick = { navController.navigate("developerSettings") },
                                         onColorSchemeClick = { navController.navigate("colorScheme") },
                                         onBatteryAlertSettingsClick = { navController.navigate("batteryAlertSettings") },
+                                        onRootModeClick = { navController.navigate("rootMode") },
                                         appearanceSettings = appearanceSettings,
                                         onAppearanceSettingsChange = { nextSettings ->
                                             appearanceSettings = nextSettings
@@ -159,6 +161,11 @@ class MainActivity : ComponentActivity() {
                             }
                             composable("permissionManagement") {
                                 PermissionManagementScreen(
+                                    onBackClick = { navController.popBackStack() }
+                                )
+                            }
+                            composable("rootMode") {
+                                RootModeScreen(
                                     onBackClick = { navController.popBackStack() }
                                 )
                             }

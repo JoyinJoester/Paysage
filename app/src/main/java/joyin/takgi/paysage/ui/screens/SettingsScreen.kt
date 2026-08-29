@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.BatteryAlert
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Colorize
 import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Security
@@ -65,6 +66,7 @@ fun SettingsScreen(
     onDeveloperSettingsClick: () -> Unit,
     onColorSchemeClick: () -> Unit,
     onBatteryAlertSettingsClick: () -> Unit,
+    onRootModeClick: () -> Unit,
     appearanceSettings: PaysageAppearanceSettings,
     onAppearanceSettingsChange: (PaysageAppearanceSettings) -> Unit,
     currentLanguage: AppLanguage,
@@ -141,6 +143,12 @@ fun SettingsScreen(
                         title = stringResource(R.string.section_battery_alerts),
                         subtitle = stringResource(R.string.summary_battery_alert_settings),
                         onClick = onBatteryAlertSettingsClick
+                    )
+                    M3eSettingsNavigationItem(
+                        icon = Icons.Default.Build,
+                        title = stringResource(R.string.screen_root_mode_title),
+                        subtitle = stringResource(R.string.summary_root_mode_entry),
+                        onClick = onRootModeClick
                     )
                     M3eSettingsNavigationItem(
                         icon = Icons.Default.BugReport,
