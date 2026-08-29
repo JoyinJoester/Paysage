@@ -7,6 +7,7 @@ import android.content.Intent
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import joyin.takgi.paysage.R
+import joyin.takgi.paysage.reliability.SmsDedupeStore
 import joyin.takgi.paysage.reliability.SmsForwardDispatcher
 import joyin.takgi.paysage.reliability.SmsForwardRequest
 import joyin.takgi.paysage.reliability.SmsForwarder
@@ -45,6 +46,8 @@ class ForwardService : Service() {
 
         scope.launch {
             val outcome = SmsForwarder(applicationContext).forwardOrQueue(request)
+            // 到达任意终态(已转发/已入缓存/被过滤)后升级为永久去重记录
+            SmsDedupeStore(applicationContext).record(request)
             SmsReliabilityManager.ensureScheduled(applicationContext)
             if (outcome.queued) {
                 SmsReliabilityManager.enqueueImmediateRetry(applicationContext)

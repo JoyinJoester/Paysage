@@ -10,7 +10,12 @@ class SmsDedupeStore(context: Context) {
         Context.MODE_PRIVATE
     )
 
-    fun markIfNew(request: SmsForwardRequest): Boolean {
+    /**
+     * 入口认领:同一条短信 90 秒内只允许分发一次,防止广播/观察器/
+     * 无障碍多链路并发重复转发。认领后必须由转发方调用 [record]
+     * 升级为永久记录;若进程在转发前死亡,认领过期后兜底链路可重放。
+     */
+    fun claimIfNew(request: SmsForwardRequest): Boolean {
         val now = System.currentTimeMillis()
         val decisionEntry = SmsDedupeEntry(
             sender = request.sender,
@@ -18,12 +23,28 @@ class SmsDedupeStore(context: Context) {
             timestamp = now
         )
         val entries = loadEntries()
-        if (!SmsDedupePolicy.isNew(entries, decisionEntry, now)) {
+        if (!SmsDedupePolicy.isNew(entries, decisionEntry, now, SmsDedupePolicy.CLAIM_WINDOW_MS)) {
             return false
         }
         saveEntries(SmsDedupePolicy.record(entries, decisionEntry, now))
         return true
     }
+
+    /**
+     * 转发完成(成功/入缓存/被过滤)后调用:把认领刷新为完整的去重窗口记录。
+     */
+    fun record(request: SmsForwardRequest) {
+        val now = System.currentTimeMillis()
+        val decisionEntry = SmsDedupeEntry(
+            sender = request.sender,
+            content = request.content,
+            timestamp = now
+        )
+        val entries = loadEntries()
+        saveEntries(SmsDedupePolicy.record(entries, decisionEntry, now))
+    }
+
+    fun markIfNew(request: SmsForwardRequest): Boolean = claimIfNew(request)
 
     private fun loadEntries(): List<SmsDedupeEntry> {
         cleanupLegacyBucketKeys()

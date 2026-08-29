@@ -84,3 +84,31 @@ class SmsDedupePolicyTest {
         timestamp: Long
     ) = SmsDedupeEntry(sender, content, timestamp)
 }
+
+class SmsDedupeClaimWindowTest {
+
+    private val request = SmsDedupeEntry("106579888888", "hello", 0L)
+
+    @Test
+    fun claimWithinWindowBlocksRedispatch() {
+        val entries = listOf(request.copy(timestamp = 1_000L))
+        val newcomer = SmsDedupeEntry("106579888888", "hello", 0L)
+        assertFalse(
+            SmsDedupePolicy.isNew(entries, newcomer, now = 10_000L, windowMs = SmsDedupePolicy.CLAIM_WINDOW_MS)
+        )
+    }
+
+    @Test
+    fun expiredClaimAllowsFallbackReplayButDedupeStillBlocks() {
+        val entries = listOf(request.copy(timestamp = 1_000L))
+        val newcomer = SmsDedupeEntry("106579888888", "hello", 0L)
+        // 认领已过期(>90s):兜底链路重放可以再次分发,不会永久丢信
+        assertTrue(
+            SmsDedupePolicy.isNew(entries, newcomer, now = 1_000L + SmsDedupePolicy.CLAIM_WINDOW_MS + 1, windowMs = SmsDedupePolicy.CLAIM_WINDOW_MS)
+        )
+        // 但若转发确实完成过,完整去重窗口(3min)内仍然判重
+        assertFalse(
+            SmsDedupePolicy.isNew(entries, newcomer, now = 1_000L + SmsDedupePolicy.CLAIM_WINDOW_MS + 1)
+        )
+    }
+}

@@ -41,7 +41,10 @@ abstract class AppDatabase : RoomDatabase() {
                     "paysage_database"
                 )
                     .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
-                    .fallbackToDestructiveMigration()
+                    // 升级路径必须显式写 Migration:缺迁移时直接崩溃暴露问题,
+                    // 绝不静默删库(fallbackToDestructiveMigration 已移除)。
+                    // 降级安装(装回旧版本)允许破坏性回退,保证降级不崩,仅丢失数据库数据。
+                    .fallbackToDestructiveMigrationOnDowngrade()
                     .build()
                 INSTANCE = instance
                 instance

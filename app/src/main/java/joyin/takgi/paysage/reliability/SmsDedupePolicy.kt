@@ -20,19 +20,36 @@ data class SmsDedupeEntry(
  */
 object SmsDedupePolicy {
     const val DEDUPE_WINDOW_MS = 3L * 60L * 1000L
+
+    /**
+     * 入口认领窗口:分发时先"认领",转发完成(或入缓存)后才算永久记录。
+     * 若认领后进程死亡导致转发没发生,认领会在该窗口后过期,
+     * 兜底采集链路重放同一条短信时仍可再次分发,不会永久丢失。
+     */
+    const val CLAIM_WINDOW_MS = 90L * 1000L
+
     private const val HISTORY_WINDOW_MS = 60L * 60L * 1000L
     private const val MAX_ENTRIES = 64
     private const val MIN_CONTAINED_LENGTH = 6
 
-    fun isNew(entries: List<SmsDedupeEntry>, request: SmsDedupeEntry, now: Long): Boolean =
-        entries.none { isSameMessage(it, request, now) }
+    fun isNew(
+        entries: List<SmsDedupeEntry>,
+        request: SmsDedupeEntry,
+        now: Long,
+        windowMs: Long = DEDUPE_WINDOW_MS
+    ): Boolean = entries.none { isSameMessage(it, request, now, windowMs) }
 
     fun record(entries: List<SmsDedupeEntry>, request: SmsDedupeEntry, now: Long): List<SmsDedupeEntry> =
         (entries.filter { now - it.timestamp <= HISTORY_WINDOW_MS } + request.copy(timestamp = now))
             .takeLast(MAX_ENTRIES)
 
-    private fun isSameMessage(entry: SmsDedupeEntry, request: SmsDedupeEntry, now: Long): Boolean {
-        if (now - entry.timestamp !in 0..DEDUPE_WINDOW_MS) return false
+    private fun isSameMessage(
+        entry: SmsDedupeEntry,
+        request: SmsDedupeEntry,
+        now: Long,
+        windowMs: Long
+    ): Boolean {
+        if (now - entry.timestamp !in 0..windowMs) return false
         val recorded = normalize(entry.content)
         val incoming = normalize(request.content)
         if (recorded.isEmpty() || incoming.isEmpty()) return false

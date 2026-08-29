@@ -1,13 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?><!--
-   Sample backup rules file; uncomment and customize as necessary.
-   See https://developer.android.com/guide/topics/data/autobackup
-   for details.
-   Note: This file is ignored for devices older than API 31
-   See https://developer.android.com/about/versions/12/backup-restore
+  云备份排除清单(API < 31)。
+  Keystore 主密钥不随备份迁移:恢复 EncryptedSharedPreferences 的密文
+  或带凭证引用的数据库到新设备会导致凭证永久解不开,必须整体排除,
+  让用户在新设备重新配置转发账号。
 -->
 <full-backup-content>
-    <!--
-   <include domain="sharedpref" path="."/>
-   <exclude domain="sharedpref" path="device.xml"/>
--->
+    <exclude domain="sharedpref" path="paysage_forward_account_secrets.xml" />
+    <exclude domain="database" path="paysage_database" />
+    <exclude domain="database" path="paysage_database-wal" />
+    <exclude domain="database" path="paysage_database-shm" />
 </full-backup-content>

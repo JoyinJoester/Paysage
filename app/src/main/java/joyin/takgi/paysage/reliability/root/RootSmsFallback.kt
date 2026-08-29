@@ -33,7 +33,8 @@ object RootSmsFallback {
         val target = File(context.cacheDir, "root_sms_fallback").apply { mkdirs() }
         val result = RootShell.exec(
             "cp $SMS_DB $SMS_DB-wal $SMS_DB-shm $target/ 2>/dev/null; " +
-                "chmod 666 ${target.absolutePath}/* 2>/dev/null; echo done"
+                // 600:短信库是全量明文,副本期间只允许本应用 uid 读取
+                "chmod 600 ${target.absolutePath}/* 2>/dev/null; echo done"
         )
         if (!result.success) return null
         val db = File(target, "mmssms.db")

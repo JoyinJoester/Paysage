@@ -41,7 +41,9 @@ import joyin.takgi.paysage.ui.components.M3ePanel
 import joyin.takgi.paysage.ui.components.M3eTopBar
 import joyin.takgi.paysage.util.NetworkSpeedMonitor
 import joyin.takgi.paysage.util.PublicIpChecker
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.net.NetworkInterface
 import java.util.Locale
 
@@ -64,7 +66,8 @@ fun NetworkSpeedScreen(onBackClick: () -> Unit) {
     // 采样协程绑定本页面生命周期:离开页面协程被取消,自动停止检测
     LaunchedEffect(Unit) {
         launch { monitor.run() }
-        lanIps = collectLanAddresses()
+        // NetworkInterface 枚举是阻塞 I/O,放 IO 线程避免主线程卡顿
+        lanIps = withContext(Dispatchers.IO) { collectLanAddresses() }
         publicIpStatus = context.getString(R.string.status_public_ip_loading)
         PublicIpChecker.fetch()
             .onSuccess {

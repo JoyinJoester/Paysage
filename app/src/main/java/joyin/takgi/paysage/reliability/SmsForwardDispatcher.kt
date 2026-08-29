@@ -14,7 +14,9 @@ object SmsForwardDispatcher {
 
     suspend fun dispatch(context: Context, request: SmsForwardRequest): Boolean {
         val appContext = context.applicationContext
-        if (!SmsDedupeStore(appContext).markIfNew(request)) {
+        // 只做认领;永久去重记录由 ForwardService 在转发完成后写入,
+        // 避免认领后进程死亡导致短信被去重挡住却从未发出。
+        if (!SmsDedupeStore(appContext).claimIfNew(request)) {
             return false
         }
 
@@ -33,6 +35,8 @@ object SmsForwardDispatcher {
         } catch (error: RuntimeException) {
             val message = appContext.getString(R.string.message_foreground_service_blocked_sms_cached)
             SmsForwarder(appContext).queue(request, message)
+            // 已进入离线缓存,属安全终态,升级为永久去重记录
+            SmsDedupeStore(appContext).record(request)
             SmsReliabilityManager.enqueueImmediateRetry(appContext)
             SmsReliabilityNotifier.notifyForwardOutcome(
                 appContext,
