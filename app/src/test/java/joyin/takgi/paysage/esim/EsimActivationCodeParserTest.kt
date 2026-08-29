@@ -149,7 +149,7 @@ class EsimActivationCodeParserTest {
         )
 
         assertFalse(report.hasErrors)
-        assertTrue(report.checks.any { it.severity == EsimActivationCheckSeverity.Pass && it.title == "SM-DP+ 地址" })
+        assertTrue(report.checks.any { it.severity == EsimActivationCheckSeverity.Pass && it.title.resId == joyin.takgi.paysage.R.string.title_smdp_address })
     }
 
     @Test
@@ -160,7 +160,7 @@ class EsimActivationCodeParserTest {
         )
 
         assertTrue(report.hasErrors)
-        assertTrue(report.checks.any { it.severity == EsimActivationCheckSeverity.Error && it.title == "确认码必填" })
+        assertTrue(report.checks.any { it.severity == EsimActivationCheckSeverity.Error && it.title.resId == joyin.takgi.paysage.R.string.title_confirmation_required })
     }
 
     @Test
@@ -171,7 +171,7 @@ class EsimActivationCodeParserTest {
         )
 
         assertFalse(report.hasErrors)
-        assertTrue(report.checks.any { it.severity == EsimActivationCheckSeverity.Warning && it.title == "匹配 ID 为空" })
+        assertTrue(report.checks.any { it.severity == EsimActivationCheckSeverity.Warning && it.title.resId == joyin.takgi.paysage.R.string.title_matching_id_empty })
     }
 
     @Test
@@ -182,7 +182,7 @@ class EsimActivationCodeParserTest {
         )
 
         assertTrue(report.hasErrors)
-        assertTrue(report.checks.any { it.severity == EsimActivationCheckSeverity.Error && it.title == "SM-DP+ 地址包含空格" })
+        assertTrue(report.checks.any { it.severity == EsimActivationCheckSeverity.Error && it.title.resId == joyin.takgi.paysage.R.string.title_smdp_address_spaces })
     }
 
     @Test
@@ -194,6 +194,6 @@ class EsimActivationCodeParserTest {
         )
 
         assertFalse(report.hasErrors)
-        assertTrue(report.checks.any { it.severity == EsimActivationCheckSeverity.Warning && it.title == "包含附加参数" })
+        assertTrue(report.checks.any { it.severity == EsimActivationCheckSeverity.Warning && it.title.resId == joyin.takgi.paysage.R.string.title_extra_parameters_present })
     }
 }

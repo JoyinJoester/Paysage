@@ -43,7 +43,8 @@ class MailInboxDiagnosticsTest {
         )
 
         assertTrue(report.contains("account.host=***.example.com"))
-        assertTrue(report.contains("account.username=ow***@example.com"))
+        // 隐私重构后域名也参与打码:ow***@ex***
+        assertTrue(report.contains("account.username=ow***@ex***"))
         assertTrue(report.contains("trustedSenders.enabled=1"))
         assertFalse(report.contains("app-password-secret"))
         assertFalse(report.contains("owner@example.com"))

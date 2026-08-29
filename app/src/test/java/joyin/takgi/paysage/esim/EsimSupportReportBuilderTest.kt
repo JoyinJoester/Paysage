@@ -150,7 +150,8 @@ class EsimSupportReportBuilderTest {
                     )
                 ),
                 omapiIsdRResults = mapOf(
-                    "SIM1" to EsimIsdRProbeResult(
+                    // EsimOmapiReaderSummary.diagnosticKey 对无 slot 的 reader 是 "name:SIM1"
+                    "name:SIM1" to EsimIsdRProbeResult(
                         success = true,
                         message = "ISD-R 已响应，APDU 通道可用。",
                         statusWord = "9000",

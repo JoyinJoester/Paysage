@@ -34,38 +34,55 @@ data class MailInboxRecoveryAdvice(
 )
 
 object MailInboxRecoveryAdvisor {
-    fun adviceFor(context: Context, kind: MailInboxFailureKind): MailInboxRecoveryAdvice? =
+
+    data class AdviceRes(
+        val titleRes: Int,
+        val messageRes: Int,
+        val actionLabelRes: Int
+    )
+
+    /** 失败类型到文案资源的纯逻辑映射,便于单元测试 */
+    fun adviceResFor(kind: MailInboxFailureKind): AdviceRes? =
         when (kind) {
             MailInboxFailureKind.None -> null
-            MailInboxFailureKind.Disabled -> MailInboxRecoveryAdvice(
-                title = context.getString(R.string.title_mail_inbox_disabled),
-                message = context.getString(R.string.message_mail_inbox_disabled),
-                actionLabel = context.getString(R.string.action_go_settings)
+            MailInboxFailureKind.Disabled -> AdviceRes(
+                titleRes = R.string.title_mail_inbox_disabled,
+                messageRes = R.string.message_mail_inbox_disabled,
+                actionLabelRes = R.string.action_go_settings
             )
-            MailInboxFailureKind.InvalidConfig -> MailInboxRecoveryAdvice(
-                title = context.getString(R.string.title_mail_config_incomplete),
-                message = context.getString(R.string.message_mail_config_incomplete),
-                actionLabel = context.getString(R.string.action_go_settings)
+            MailInboxFailureKind.InvalidConfig -> AdviceRes(
+                titleRes = R.string.title_mail_config_incomplete,
+                messageRes = R.string.message_mail_config_incomplete,
+                actionLabelRes = R.string.action_go_settings
             )
-            MailInboxFailureKind.AuthenticationFailed -> MailInboxRecoveryAdvice(
-                title = context.getString(R.string.title_mail_login_failed),
-                message = context.getString(R.string.message_mail_login_failed),
-                actionLabel = context.getString(R.string.action_fix)
+            MailInboxFailureKind.AuthenticationFailed -> AdviceRes(
+                titleRes = R.string.title_mail_login_failed,
+                messageRes = R.string.message_mail_login_failed,
+                actionLabelRes = R.string.action_fix
             )
-            MailInboxFailureKind.NetworkOrServerFailed -> MailInboxRecoveryAdvice(
-                title = context.getString(R.string.title_mail_server_unreachable),
-                message = context.getString(R.string.message_mail_server_unreachable),
-                actionLabel = context.getString(R.string.action_retry)
+            MailInboxFailureKind.NetworkOrServerFailed -> AdviceRes(
+                titleRes = R.string.title_mail_server_unreachable,
+                messageRes = R.string.message_mail_server_unreachable,
+                actionLabelRes = R.string.action_retry
             )
-            MailInboxFailureKind.BackgroundRestricted -> MailInboxRecoveryAdvice(
-                title = context.getString(R.string.title_mail_background_restricted),
-                message = context.getString(R.string.message_mail_background_restricted),
-                actionLabel = context.getString(R.string.action_optimize)
+            MailInboxFailureKind.BackgroundRestricted -> AdviceRes(
+                titleRes = R.string.title_mail_background_restricted,
+                messageRes = R.string.message_mail_background_restricted,
+                actionLabelRes = R.string.action_optimize
             )
-            MailInboxFailureKind.CommandRejected -> MailInboxRecoveryAdvice(
-                title = context.getString(R.string.title_mail_commands_rejected),
-                message = context.getString(R.string.message_mail_commands_rejected),
-                actionLabel = context.getString(R.string.action_view)
+            MailInboxFailureKind.CommandRejected -> AdviceRes(
+                titleRes = R.string.title_mail_commands_rejected,
+                messageRes = R.string.message_mail_commands_rejected,
+                actionLabelRes = R.string.action_view
+            )
+        }
+
+    fun adviceFor(context: Context, kind: MailInboxFailureKind): MailInboxRecoveryAdvice? =
+        adviceResFor(kind)?.let { advice ->
+            MailInboxRecoveryAdvice(
+                title = context.getString(advice.titleRes),
+                message = context.getString(advice.messageRes),
+                actionLabel = context.getString(advice.actionLabelRes)
             )
         }
 }

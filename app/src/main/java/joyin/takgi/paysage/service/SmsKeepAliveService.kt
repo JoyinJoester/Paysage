@@ -15,6 +15,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import joyin.takgi.paysage.R
 import joyin.takgi.paysage.reliability.CallLogObserver
+import joyin.takgi.paysage.reliability.MmsContentObserver
 import joyin.takgi.paysage.reliability.SmsContentObserver
 import joyin.takgi.paysage.reliability.SmsReliabilityManager
 import joyin.takgi.paysage.telegram.TelegramCommandRepository
@@ -31,6 +32,7 @@ class SmsKeepAliveService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var observerThread: HandlerThread? = null
     private var smsObserver: SmsContentObserver? = null
+    private var mmsObserver: MmsContentObserver? = null
     private var callLogObserver: CallLogObserver? = null
     private var telegramCommandJob: Job? = null
 
@@ -49,6 +51,7 @@ class SmsKeepAliveService : Service() {
         )
         SmsReliabilityManager.ensureScheduled(this)
         registerSmsObserver()
+        registerMmsObserver()
         registerCallLogObserver()
         startTelegramCommandLoop()
     }
@@ -56,6 +59,7 @@ class SmsKeepAliveService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         SmsReliabilityManager.ensureScheduled(this)
         registerSmsObserver()
+        registerMmsObserver()
         registerCallLogObserver()
         startTelegramCommandLoop()
         return START_STICKY
@@ -69,6 +73,7 @@ class SmsKeepAliveService : Service() {
 
     override fun onDestroy() {
         smsObserver?.let { contentResolver.unregisterContentObserver(it) }
+        mmsObserver?.let { contentResolver.unregisterContentObserver(it) }
         callLogObserver?.let { contentResolver.unregisterContentObserver(it) }
         smsObserver = null
         callLogObserver = null
@@ -95,6 +100,26 @@ class SmsKeepAliveService : Service() {
             contentObserver
         )
         smsObserver = contentObserver
+    }
+
+    private fun registerMmsObserver() {
+        if (mmsObserver != null) return
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECEIVE_MMS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+        val contentObserver = MmsContentObserver(
+            context = applicationContext,
+            handler = observerHandler(),
+            scope = scope
+        )
+        contentResolver.registerContentObserver(
+            Telephony.Mms.CONTENT_URI,
+            true,
+            contentObserver
+        )
+        mmsObserver = contentObserver
     }
 
     private fun registerCallLogObserver() {

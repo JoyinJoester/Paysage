@@ -215,6 +215,7 @@ class MainActivity : ComponentActivity() {
         val permissions = mutableListOf(
             Manifest.permission.READ_SMS,
             Manifest.permission.RECEIVE_SMS,
+            Manifest.permission.RECEIVE_MMS,
             Manifest.permission.READ_PHONE_STATE,
             Manifest.permission.READ_CALL_LOG
         )

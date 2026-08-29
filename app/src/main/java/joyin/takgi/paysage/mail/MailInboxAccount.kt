@@ -84,8 +84,10 @@ object MailInboxAccountValidator {
 internal object MailBodyTextExtractor {
     fun htmlToText(html: String): String =
         html
-            .replace(Regex("(?i)<\\s*br\\s*/?>"), "\n")
-            .replace(Regex("(?i)</\\s*(p|div|li|tr|h[1-6]|blockquote|section|article|table)\\s*>"), "\n")
+            // <br> 连同其后的换行一起折叠成单个换行:否则 "text<br>\n" 会产生
+            // 空行,指令解析器会把空行当作字段区结束,导致 HTML 邮件指令无法解析
+            .replace(Regex("(?i)[ \\t]*<\\s*br\\s*/?>[ \\t]*\\r?\\n?"), "\n")
+            .replace(Regex("(?i)[ \\t]*</\\s*(p|div|li|tr|h[1-6]|blockquote|section|article|table)\\s*>[ \\t]*\\r?\\n?"), "\n")
             .replace(Regex("<[^>]+>"), " ")
             .replace("&nbsp;", " ")
             .replace("&amp;", "&")

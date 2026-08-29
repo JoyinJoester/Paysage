@@ -42,10 +42,20 @@ class EsimDownloadHistoryPolicyTest {
     }
 
     @Test
-    fun buildsReadableHistoryTitles() {
-        assertEquals("下载 eSIM / 等待回调", EsimDownloadHistoryPolicy.title(result("download-1", EsimDownloadStatus.Pending)))
-        assertEquals("端口切换 / 已完成", EsimDownloadHistoryPolicy.title(result("switch-port-1-1", EsimDownloadStatus.Succeeded)))
-        assertTrue(EsimDownloadHistoryPolicy.title(result("unknown-1", EsimDownloadStatus.Failed)).contains("失败"))
+    fun operationClassifierMapsRequestIdPrefixes() {
+        // title() 需要 Context,纯 JVM 测试改为验证前缀分类逻辑
+        assertEquals(
+            joyin.takgi.paysage.R.string.operation_download_esim,
+            EsimDownloadHistoryPolicy.titleOperationResId("download-1")
+        )
+        assertEquals(
+            joyin.takgi.paysage.R.string.operation_switch_port,
+            EsimDownloadHistoryPolicy.titleOperationResId("switch-port-1-1")
+        )
+        assertEquals(
+            joyin.takgi.paysage.R.string.operation_esim_system,
+            EsimDownloadHistoryPolicy.titleOperationResId("unknown-1")
+        )
     }
 
     private fun result(

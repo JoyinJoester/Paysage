@@ -1,42 +1,53 @@
 package joyin.takgi.paysage.mail
 
+import joyin.takgi.paysage.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MailInboxRecoveryAdvisorTest {
+    // adviceFor(context, kind) 需要 Context 解析文案,纯 JVM 测试改为
+    // 断言 adviceResFor 的资源映射
     @Test
     fun noAdviceWhenThereIsNoFailure() {
-        assertNull(MailInboxRecoveryAdvisor.adviceFor(MailInboxFailureKind.None))
+        assertNull(MailInboxRecoveryAdvisor.adviceResFor(MailInboxFailureKind.None))
     }
 
     @Test
-    fun authenticationFailurePointsToAccountAndImapSetup() {
-        val advice = MailInboxRecoveryAdvisor.adviceFor(MailInboxFailureKind.AuthenticationFailed)
-
-        assertNotNull(advice)
-        assertEquals("邮箱登录失败", advice?.title)
-        assertTrue(advice?.message.orEmpty().contains("授权码"))
-        assertTrue(advice?.message.orEmpty().contains("IMAP"))
+    fun everyFailureKindHasAdvice() {
+        MailInboxFailureKind.entries
+            .filter { it != MailInboxFailureKind.None }
+            .forEach { kind ->
+                assertNotNull("missing advice for $kind", MailInboxRecoveryAdvisor.adviceResFor(kind))
+            }
     }
 
     @Test
-    fun rejectedCommandAdviceExplainsSecurityChecks() {
-        val advice = MailInboxRecoveryAdvisor.adviceFor(MailInboxFailureKind.CommandRejected)
+    fun authenticationFailurePointsToFixAction() {
+        val advice = MailInboxRecoveryAdvisor.adviceResFor(MailInboxFailureKind.AuthenticationFailed)
 
         assertNotNull(advice)
-        assertTrue(advice?.message.orEmpty().contains("密钥"))
-        assertTrue(advice?.message.orEmpty().contains("nonce"))
+        assertEquals(R.string.title_mail_login_failed, advice!!.titleRes)
+        assertEquals(R.string.message_mail_login_failed, advice.messageRes)
+        assertEquals(R.string.action_fix, advice.actionLabelRes)
     }
 
     @Test
-    fun backgroundRestrictionAdviceMentionsWorkManagerAndBatteryOptimization() {
-        val advice = MailInboxRecoveryAdvisor.adviceFor(MailInboxFailureKind.BackgroundRestricted)
+    fun backgroundRestrictionAdviceMentionsOptimizeAction() {
+        val advice = MailInboxRecoveryAdvisor.adviceResFor(MailInboxFailureKind.BackgroundRestricted)
 
         assertNotNull(advice)
-        assertTrue(advice?.message.orEmpty().contains("电池优化"))
-        assertTrue(advice?.message.orEmpty().contains("WorkManager"))
+        assertEquals(R.string.title_mail_background_restricted, advice!!.titleRes)
+        assertEquals(R.string.action_optimize, advice.actionLabelRes)
+    }
+
+    @Test
+    fun rejectedCommandAdvicePointsToLogs() {
+        val advice = MailInboxRecoveryAdvisor.adviceResFor(MailInboxFailureKind.CommandRejected)
+
+        assertNotNull(advice)
+        assertEquals(R.string.title_mail_commands_rejected, advice!!.titleRes)
+        assertEquals(R.string.action_view, advice.actionLabelRes)
     }
 }

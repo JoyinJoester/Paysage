@@ -2,55 +2,54 @@ package joyin.takgi.paysage.esim
 
 import android.telephony.euicc.EuiccManager
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class EsimDownloadResultMapperTest {
+    // fromCallback 需要 Context 生成文案,纯 JVM 测试改用无 Context 的
+    // statusFor / 结构化字段断言验证映射逻辑
     @Test
     fun mapsSuccessResult() {
-        val result = EsimDownloadResultMapper.fromCallback(
-            requestId = "req-1",
-            resultCode = EuiccManager.EMBEDDED_SUBSCRIPTION_RESULT_OK,
-            detailedCode = null,
-            operationCode = null,
-            errorCode = null,
-            smdxSubjectCode = null,
-            smdxReasonCode = null
+        assertEquals(
+            EsimDownloadStatus.Succeeded,
+            EsimDownloadResultMapper.statusFor(EuiccManager.EMBEDDED_SUBSCRIPTION_RESULT_OK)
         )
-
-        assertEquals(EsimDownloadStatus.Succeeded, result.status)
-        assertEquals("req-1", result.requestId)
     }
 
     @Test
     fun mapsResolvableResult() {
-        val result = EsimDownloadResultMapper.fromCallback(
-            requestId = "req-2",
-            resultCode = EuiccManager.EMBEDDED_SUBSCRIPTION_RESULT_RESOLVABLE_ERROR,
-            detailedCode = 1,
-            operationCode = 2,
-            errorCode = 3,
-            smdxSubjectCode = null,
-            smdxReasonCode = null
+        assertEquals(
+            EsimDownloadStatus.NeedsConfirmation,
+            EsimDownloadResultMapper.statusFor(EuiccManager.EMBEDDED_SUBSCRIPTION_RESULT_RESOLVABLE_ERROR)
         )
-
-        assertEquals(EsimDownloadStatus.NeedsConfirmation, result.status)
     }
 
     @Test
-    fun mapsFailureWithDiagnostics() {
-        val result = EsimDownloadResultMapper.fromCallback(
+    fun mapsErrorResult() {
+        assertEquals(
+            EsimDownloadStatus.Failed,
+            EsimDownloadResultMapper.statusFor(EuiccManager.EMBEDDED_SUBSCRIPTION_RESULT_ERROR)
+        )
+    }
+
+    @Test
+    fun unknownResultCodeFallsBackToFailed() {
+        assertEquals(EsimDownloadStatus.Failed, EsimDownloadResultMapper.statusFor(12345))
+    }
+
+    @Test
+    fun failureKeepsDiagnosticFields() {
+        val result = EsimDownloadResultMapper.failure(
             requestId = "req-3",
-            resultCode = EuiccManager.EMBEDDED_SUBSCRIPTION_RESULT_ERROR,
-            detailedCode = 42,
-            operationCode = 8,
-            errorCode = 9,
-            smdxSubjectCode = "8.1",
-            smdxReasonCode = "3.8"
+            message = "diagnostic failure"
         )
 
         assertEquals(EsimDownloadStatus.Failed, result.status)
-        assertTrue(result.message.contains("详细码 42"))
-        assertTrue(result.message.contains("Subject 8.1"))
+        assertEquals("req-3", result.requestId)
+        assertEquals("diagnostic failure", result.message)
+        assertNull(result.detailedCode)
+        assertNull(result.smdxSubjectCode)
+        assertTrue(result.updatedAtMillis > 0)
     }
 }

@@ -1085,7 +1085,9 @@
     <string name="operation_esim_apdu">APDU 通信</string>
     <string name="operation_esim_http">HTTP 网络请求</string>
     <string name="format_operation_esim_unknown">未知阶段 %1$d</string>
-    <string name="recovery_esim_check_activation_code">重新扫描运营商二维码，或核对 LPA 激活码中的 SM-DP+ 地址与匹配 ID。</string>
+
+    <string name="operation_esim_smdx">SM-DP+/SM-DS</string>
+    <string name="operation_esim_smdx_subject_reason">SM-DP+ Subject/Reason</string>    <string name="recovery_esim_check_activation_code">重新扫描运营商二维码，或核对 LPA 激活码中的 SM-DP+ 地址与匹配 ID。</string>
     <string name="recovery_esim_check_confirmation_code">重新输入运营商提供的确认码，注意大小写和空格。</string>
     <string name="recovery_esim_check_carrier">确认设备、运营商和套餐是否匹配；必要时联系运营商解除限制。</string>
     <string name="recovery_esim_free_profile_space">在系统 eSIM 管理页删除不再使用的 profile 后重试。</string>

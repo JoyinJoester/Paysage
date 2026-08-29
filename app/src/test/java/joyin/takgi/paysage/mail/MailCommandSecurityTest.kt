@@ -103,20 +103,20 @@ class MailCommandSecurityTest {
 
     @Test
     fun prefersBodyCommandBeforeSubjectCommand() {
+        // esim 邮件指令已下线,改用 network 指令验证"正文优先于主题"
         val command = MailCommandParser.parseMessage(
             subject = "/paysage sw",
-            body = "/paysage esim -list"
+            body = "/paysage net"
         ).getOrThrow()
 
-        assertEquals(MailCommandAction.EsimList, command.action)
+        assertEquals(MailCommandAction.NetworkSpeed, command.action)
     }
 
     @Test
-    fun parsesSimpleEsimSwitchArgument() {
-        val command = parse("/paysage esim -sw 12")
+    fun parsesSimpleStatusAlias() {
+        val command = parse("/paysage sta")
 
-        assertEquals(MailCommandAction.EsimSwitch, command.action)
-        assertEquals("12", command.argument)
+        assertEquals(MailCommandAction.DeviceStatus, command.action)
         assertFalse(command.requiresAuthenticator)
     }
 

@@ -234,32 +234,39 @@ object EsimDownloadHistoryPolicy {
             .take(MAX_HISTORY_ITEMS)
     }
 
-    fun title(context: Context, result: EsimDownloadResult): String {
-        val operation = when {
-            result.requestId.startsWith("download-") ||
-                result.requestId.startsWith("external-download-") -> context.getString(R.string.operation_download_esim)
-            result.requestId.startsWith("switch-port-") -> context.getString(R.string.operation_switch_port)
-            result.requestId.startsWith("switch-") ||
-                result.requestId.startsWith("external-switch-") ||
-                result.requestId.startsWith("external-disable-") -> context.getString(R.string.operation_switch_esim)
-            result.requestId.startsWith("delete-") ||
-                result.requestId.startsWith("external-delete-") -> context.getString(R.string.operation_delete_esim)
-            result.requestId.startsWith("rename-") ||
-                result.requestId.startsWith("external-rename-") -> context.getString(R.string.operation_rename_esim)
-            result.requestId.startsWith("external-memory-reset-") -> context.getString(R.string.operation_external_euicc_memory_reset)
-            result.requestId.startsWith("external-notification-") -> context.getString(R.string.operation_external_euicc_notification)
-            else -> context.getString(R.string.operation_esim_system)
-        }
-        return context.getString(R.string.format_esim_history_title, operation, result.status.label(context))
+    fun title(context: Context, result: EsimDownloadResult): String =
+        context.getString(
+            R.string.format_esim_history_title,
+            context.getString(titleOperationResId(result.requestId)),
+            result.status.label(context)
+        )
+
+    /** 操作类型分类,纯逻辑返回标题资源 id,便于单元测试 */
+    fun titleOperationResId(requestId: String): Int = when {
+        requestId.startsWith("download-") ||
+            requestId.startsWith("external-download-") -> R.string.operation_download_esim
+        requestId.startsWith("switch-port-") -> R.string.operation_switch_port
+        requestId.startsWith("switch-") ||
+            requestId.startsWith("external-switch-") ||
+            requestId.startsWith("external-disable-") -> R.string.operation_switch_esim
+        requestId.startsWith("delete-") ||
+            requestId.startsWith("external-delete-") -> R.string.operation_delete_esim
+        requestId.startsWith("rename-") ||
+            requestId.startsWith("external-rename-") -> R.string.operation_rename_esim
+        requestId.startsWith("external-memory-reset-") -> R.string.operation_external_euicc_memory_reset
+        requestId.startsWith("external-notification-") -> R.string.operation_external_euicc_notification
+        else -> R.string.operation_esim_system
     }
 }
 
-fun EsimDownloadStatus.label(context: Context): String = when (this) {
-    EsimDownloadStatus.Idle -> context.getString(R.string.status_esim_idle)
-    EsimDownloadStatus.Pending -> context.getString(R.string.status_esim_pending)
-    EsimDownloadStatus.NeedsConfirmation -> context.getString(R.string.status_esim_needs_confirmation)
-    EsimDownloadStatus.Succeeded -> context.getString(R.string.status_esim_succeeded)
-    EsimDownloadStatus.Failed -> context.getString(R.string.status_esim_failed)
+fun EsimDownloadStatus.label(context: Context): String = context.getString(labelResId())
+
+fun EsimDownloadStatus.labelResId(): Int = when (this) {
+    EsimDownloadStatus.Idle -> R.string.status_esim_idle
+    EsimDownloadStatus.Pending -> R.string.status_esim_pending
+    EsimDownloadStatus.NeedsConfirmation -> R.string.status_esim_needs_confirmation
+    EsimDownloadStatus.Succeeded -> R.string.status_esim_succeeded
+    EsimDownloadStatus.Failed -> R.string.status_esim_failed
 }
 
 object EsimDownloadResultMapper {
@@ -273,11 +280,7 @@ object EsimDownloadResultMapper {
         smdxSubjectCode: String?,
         smdxReasonCode: String?
     ): EsimDownloadResult {
-        val status = when (resultCode) {
-            EuiccManager.EMBEDDED_SUBSCRIPTION_RESULT_OK -> EsimDownloadStatus.Succeeded
-            EuiccManager.EMBEDDED_SUBSCRIPTION_RESULT_RESOLVABLE_ERROR -> EsimDownloadStatus.NeedsConfirmation
-            else -> EsimDownloadStatus.Failed
-        }
+        val status = statusFor(resultCode)
         return EsimDownloadResult(
             requestId = requestId,
             status = status,
@@ -305,6 +308,13 @@ object EsimDownloadResultMapper {
             smdxReasonCode = null,
             updatedAtMillis = System.currentTimeMillis()
         )
+
+    /** 回调结果码到状态的映射,纯逻辑便于单元测试 */
+    fun statusFor(resultCode: Int): EsimDownloadStatus = when (resultCode) {
+        EuiccManager.EMBEDDED_SUBSCRIPTION_RESULT_OK -> EsimDownloadStatus.Succeeded
+        EuiccManager.EMBEDDED_SUBSCRIPTION_RESULT_RESOLVABLE_ERROR -> EsimDownloadStatus.NeedsConfirmation
+        else -> EsimDownloadStatus.Failed
+    }
 
     private fun messageFor(
         context: Context,

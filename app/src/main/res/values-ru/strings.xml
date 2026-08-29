@@ -1095,7 +1095,9 @@
     <string name="operation_esim_apdu">Связь APDU</string>
     <string name="operation_esim_http">HTTP-запрос</string>
     <string name="format_operation_esim_unknown">Неизвестный этап %1$d</string>
-    <string name="recovery_esim_check_activation_code">Повторно отсканируйте QR-код оператора или проверьте адрес SM-DP+ и Matching ID в коде активации LPA.</string>
+
+    <string name="operation_esim_smdx">SM-DP+/SM-DS</string>
+    <string name="operation_esim_smdx_subject_reason">SM-DP+ Subject/Reason</string>    <string name="recovery_esim_check_activation_code">Повторно отсканируйте QR-код оператора или проверьте адрес SM-DP+ и Matching ID в коде активации LPA.</string>
     <string name="recovery_esim_check_confirmation_code">Введите код подтверждения оператора еще раз, учитывая регистр букв и пробелы.</string>
     <string name="recovery_esim_check_carrier">Проверьте соответствие устройства, оператора и тарифа. При необходимости обратитесь к оператору для снятия ограничений.</string>
     <string name="recovery_esim_free_profile_space">Удалите неиспользуемые профили на системной странице управления eSIM и повторите попытку.</string>

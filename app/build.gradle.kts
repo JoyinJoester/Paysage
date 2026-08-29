@@ -126,6 +126,13 @@ android {
         compose = true
         buildConfig = true
     }
+    testOptions {
+        unitTests {
+            // 报告构建等代码引用 Build.* 等系统字段,单测中让 stub 返回默认值
+            // 而不是抛异常;业务断言基于 ReportText 的无 Context 兜底文案。
+            isReturnDefaultValues = true
+        }
+    }
     sourceSets {
         getByName("main") {
             java.srcDir("src/vendored/java")

@@ -1100,7 +1100,9 @@
     <string name="operation_esim_apdu">APDU communication</string>
     <string name="operation_esim_http">HTTP network request</string>
     <string name="format_operation_esim_unknown">Unknown phase %1$d</string>
-    <string name="recovery_esim_check_activation_code">Scan the carrier QR code again, or check the SM-DP+ address and Matching ID in the LPA activation code.</string>
+
+    <string name="operation_esim_smdx">SM-DP+/SM-DS</string>
+    <string name="operation_esim_smdx_subject_reason">SM-DP+ Subject/Reason</string>    <string name="recovery_esim_check_activation_code">Scan the carrier QR code again, or check the SM-DP+ address and Matching ID in the LPA activation code.</string>
     <string name="recovery_esim_check_confirmation_code">Enter the carrier confirmation code again, paying attention to letter case and spaces.</string>
     <string name="recovery_esim_check_carrier">Confirm that the device, carrier, and plan match. Contact the carrier to remove restrictions if needed.</string>
     <string name="recovery_esim_free_profile_space">Delete unused profiles in the system eSIM management page, then try again.</string>

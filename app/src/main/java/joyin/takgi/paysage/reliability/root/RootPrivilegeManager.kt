@@ -13,6 +13,7 @@ object RootPrivilegeCommands {
     val DANGEROUS_PERMISSIONS = listOf(
         "android.permission.READ_SMS",
         "android.permission.RECEIVE_SMS",
+        "android.permission.RECEIVE_MMS",
         "android.permission.READ_PHONE_STATE",
         "android.permission.READ_CALL_LOG",
         "android.permission.CAMERA"

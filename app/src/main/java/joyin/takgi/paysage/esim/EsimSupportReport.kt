@@ -49,7 +49,7 @@ object EsimSupportReportBuilder {
         lines += "Build time: ${BuildConfig.BUILD_TIME}"
         lines += "Git SHA: ${BuildConfig.GIT_SHA}"
         lines += "APK arch: ${BuildConfig.APK_ARCH}"
-        lines += "Device ABIs: ${Build.SUPPORTED_ABIS.joinToString(",")}"
+        lines += "Device ABIs: ${(Build.SUPPORTED_ABIS ?: emptyArray()).joinToString(",")}"
         lines += "Android: ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
         lines += "Device: ${Build.MANUFACTURER} ${Build.MODEL}"
         lines += "Paysage ARA-M SHA-1: ${input.paysageAraMSha1.ifBlank { text.get(R.string.value_not_disclosed) }}"
@@ -238,7 +238,11 @@ object EsimSupportReportBuilder {
             result.errorCode?.let { "error=$it" }
         ).joinToString(", ")
         val title = text.context?.let { EsimDownloadHistoryPolicy.title(it, result) }
-            ?: result.requestId.ifBlank { result.status.name }
+            ?: run {
+                // 无 Context(纯 JVM 场景)按 resId 走 ReportText 中文回退
+                val operation = text.get(EsimDownloadHistoryPolicy.titleOperationResId(result.requestId))
+                "$operation / ${text.get(result.status.labelResId())}"
+            }
         return listOf(
             title,
             result.message,
@@ -303,6 +307,17 @@ object EsimSupportReportBuilder {
                 R.string.format_report_ports_available -> "${args[0]}/${args[1]} 可用"
                 R.string.format_report_response_bytes -> "响应=${args[0]}字节"
                 R.string.format_report_sgp22_gate_counts -> "可执行只读: ${args[0]} / 计划: ${args[1]} / 阻断: ${args[2]}"
+                R.string.operation_download_esim -> "下载 eSIM"
+                R.string.operation_switch_port -> "端口切换"
+                R.string.operation_switch_esim -> "切换 eSIM"
+                R.string.operation_delete_esim -> "删除 eSIM"
+                R.string.operation_rename_esim -> "重命名 eSIM"
+                R.string.operation_esim_system -> "eSIM 系统操作"
+                R.string.status_esim_idle -> "未开始"
+                R.string.status_esim_pending -> "等待回调"
+                R.string.status_esim_needs_confirmation -> "需要确认"
+                R.string.status_esim_succeeded -> "已完成"
+                R.string.status_esim_failed -> "失败"
                 else -> ""
             }
     }
