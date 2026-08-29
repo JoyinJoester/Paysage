@@ -39,6 +39,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import joyin.takgi.paysage.R
+import joyin.takgi.paysage.ui.navigation.PaysageBottomBar
 import joyin.takgi.paysage.reliability.ForwardAccountAlertSender
 import joyin.takgi.paysage.ui.components.M3eActionButton
 import joyin.takgi.paysage.ui.components.M3eAlertDialog
@@ -65,7 +66,8 @@ import java.util.Locale
 @Composable
 fun NetworkSpeedScreen(
     onBackClick: (() -> Unit)? = null,
-    bottomBar: @Composable () -> Unit = {}
+    selectedTab: Int? = null,
+    onTabSelected: ((Int) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -156,7 +158,11 @@ fun NetworkSpeedScreen(
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
-        bottomBar = bottomBar,
+        bottomBar = {
+            if (selectedTab != null && onTabSelected != null) {
+                PaysageBottomBar(selectedTab = selectedTab, onTabSelected = onTabSelected)
+            }
+        },
         topBar = {
             M3eTopBar(
                 title = stringResource(R.string.screen_network_speed_title),

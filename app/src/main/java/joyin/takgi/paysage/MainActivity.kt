@@ -119,13 +119,8 @@ class MainActivity : ComponentActivity() {
                                         onTabSelected = { selectedTab = it }
                                     )
                                     PaysageTab.Dashboard -> NetworkSpeedScreen(
-                                        onBackClick = null,
-                                        bottomBar = {
-                                            PaysageBottomBar(
-                                                selectedTab = selectedTab,
-                                                onTabSelected = { selectedTab = it }
-                                            )
-                                        }
+                                        selectedTab = selectedTab,
+                                        onTabSelected = { selectedTab = it }
                                     )
                                     PaysageTab.Settings -> SettingsScreen(
                                         selectedTab = selectedTab,
