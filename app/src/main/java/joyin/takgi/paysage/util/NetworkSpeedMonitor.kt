@@ -24,9 +24,12 @@ class NetworkSpeedMonitor(
     private val intervalMs: Long = SAMPLE_INTERVAL_MS,
     private val historySize: Int = HISTORY_SIZE,
     private val counterReader: () -> Map<String, Pair<Long, Long>> = {
-        // Android 10+ 禁止应用读 /proc/net/dev,读不到时回退 /sys/class/net
+        // 四级回退:/proc/net/dev → /sys/class/net → TrafficStats 按接口 → 总量估算,
+        // 前三级可保持"只统计 WAN 口"的准确性;仅最后一级是近似值
         runCatching { NetDevParser.parse(File(PROC_NET_DEV).readText()) }.getOrDefault(emptyMap())
             .ifEmpty { SystemNetCounters.read() }
+            .ifEmpty { InterfaceTrafficStatsReader.read() }
+            .ifEmpty { TrafficStatsCounters.read() }
     }
 ) {
     private val _state = MutableStateFlow(NetworkSpeedSnapshot())
@@ -39,7 +42,8 @@ class NetworkSpeedMonitor(
 
     suspend fun run() {
         while (true) {
-            sample()
+            // 单次采样失败不允许终止整个循环,否则页面会永远停在 0
+            runCatching { sample() }
             delay(intervalMs)
         }
     }

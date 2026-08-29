@@ -43,6 +43,7 @@ import joyin.takgi.paysage.util.DeviceStatus
 import joyin.takgi.paysage.util.DeviceStatusCollector
 import joyin.takgi.paysage.util.NetworkSpeedMonitor
 import joyin.takgi.paysage.util.PublicIpChecker
+import joyin.takgi.paysage.util.TrafficStatsCounters
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -154,7 +155,13 @@ fun NetworkSpeedScreen(
                     Text(
                         text = stringResource(
                             R.string.summary_counted_interfaces,
-                            snapshot.countedInterfaces.joinToString(", ").ifBlank { "—" }
+                            when {
+                                snapshot.countedInterfaces == listOf(TrafficStatsCounters.PSEUDO_INTERFACE) ->
+                                    stringResource(R.string.summary_counter_estimate)
+                                snapshot.countedInterfaces.isEmpty() ->
+                                    stringResource(R.string.summary_counter_unavailable)
+                                else -> snapshot.countedInterfaces.joinToString(", ")
+                            }
                         ),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant

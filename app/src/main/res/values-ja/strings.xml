@@ -1213,6 +1213,8 @@
     <string name="status_public_ip_failed">取得失敗</string>
     <string name="action_refresh_public_ip">グローバル IP を更新</string>
     <string name="summary_counted_interfaces">集計インターフェース:%1$s</string>
+    <string name="summary_counter_unavailable">この端末ではトラフィックカウンターを読み取れません</string>
+    <string name="summary_counter_estimate">合計(概算、テザリング転送を含む)</string>
     <string name="summary_network_speed_page">速度は毎秒カーネルカウンターを読むパッシブ測定で、テスト通信を一切発生させず速度に影響しません。このページを開いている間だけ測定します。</string>
     <string name="separator_list">、</string>
     <string name="format_sms_email_subject">[SMS] %s から</string>

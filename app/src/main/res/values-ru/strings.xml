@@ -1213,6 +1213,8 @@
     <string name="status_public_ip_failed">Не удалось определить</string>
     <string name="action_refresh_public_ip">Обновить публичный IP</string>
     <string name="summary_counted_interfaces">Учитываемые интерфейсы: %1$s</string>
+    <string name="summary_counter_unavailable">Не удалось прочитать счётчики трафика на этом устройстве</string>
+    <string name="summary_counter_estimate">всего (оценка; включает трафик хот-спота)</string>
     <string name="summary_network_speed_page">Скорость определяется раз в секунду по счётчикам ядра — пассивно, без тестового трафика, поэтому на сеть не влияет. Замер идёт только пока открыта эта страница.</string>
     <string name="separator_list">, </string>
     <string name="format_sms_email_subject">[SMS] От %s</string>

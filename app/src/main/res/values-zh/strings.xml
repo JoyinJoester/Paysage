@@ -1203,6 +1203,8 @@
     <string name="status_public_ip_failed">查询失败</string>
     <string name="action_refresh_public_ip">刷新公网 IP</string>
     <string name="summary_counted_interfaces">统计接口:%1$s</string>
+    <string name="summary_counter_unavailable">当前设备读取不到流量计数器</string>
+    <string name="summary_counter_estimate">总量估算(含热点转发流量,仅供参考)</string>
     <string name="summary_network_speed_page">速率每秒读取一次内核计数器得出,属于被动采样,不产生任何测试流量,不会影响网速;仅在本页面停留期间检测,离开即停止。</string>
     <string name="separator_list">、</string>
     <string name="format_sms_email_subject">[短信] 来自 %s</string>
