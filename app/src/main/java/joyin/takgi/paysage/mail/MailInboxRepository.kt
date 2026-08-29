@@ -43,6 +43,8 @@ class MailInboxRepository(context: Context) {
     private val secretStore = MailTrustedSenderSecretStore(appContext)
     private val runtimeStore = MailInboxRuntimeStore(appContext)
     private val forwardingControlStore = SmsForwardingControlStore(appContext)
+    private val receiptSender = MailCommandReceiptSender(appContext)
+    private val commandExecutor = PaysageCommandExecutor(appContext)
     private val senderDao = database.mailTrustedSenderDao()
     private val nonceDao = database.mailCommandNonceDao()
     private val recordDao = database.mailCommandRecordDao()
@@ -67,6 +69,8 @@ class MailInboxRepository(context: Context) {
             normalizedConfig
         )
         MailInboxReliabilityManager.ensureScheduled(appContext)
+        val realtimeSettings = MailInboxRealtimeSettingsStore(appContext).read()
+        MailInboxRealtimeServiceController.reconcile(appContext, normalizedConfig, realtimeSettings)
         if (!normalizedConfig.enabled || !normalizedConfig.isConfigured) {
             MailInboxIdleService.stop(appContext)
         }
@@ -84,7 +88,7 @@ class MailInboxRepository(context: Context) {
         val normalizedEmail = MailAddressNormalizer.normalize(email)
             ?: throw IllegalArgumentException(appContext.getString(R.string.message_invalid_trusted_sender_email))
         val cleanSecret = secret.trim()
-        require(cleanSecret.length >= MIN_SECRET_LENGTH) {
+        require(cleanSecret.isBlank() || cleanSecret.length >= MIN_SECRET_LENGTH) {
             appContext.getString(R.string.format_command_secret_min_length, MIN_SECRET_LENGTH)
         }
         val now = System.currentTimeMillis()
@@ -191,18 +195,13 @@ class MailInboxRepository(context: Context) {
 
         val trustedEntities = senderDao.getAllOnce()
         val trustedByEmail = trustedEntities.associateBy { it.email }
-        val trustedSenders = trustedEntities.mapNotNull { entity ->
-            val secret = secretStore.read(entity.email)
-            if (secret.isNullOrBlank()) {
-                null
-            } else {
-                TrustedMailSender(
-                    email = entity.email,
-                    allowedActions = entity.allowedActionSet(),
-                    secret = secret,
-                    enabled = entity.enabled
-                )
-            }
+        val trustedSenders = trustedEntities.map { entity ->
+            TrustedMailSender(
+                email = entity.email,
+                allowedActions = entity.allowedActionSet(),
+                secret = secretStore.read(entity.email).orEmpty(),
+                enabled = entity.enabled
+            )
         }
 
         val fetchedMessages = MailImapClient(config, appContext).fetchRecentMessages(limit) { summary ->
@@ -299,13 +298,11 @@ class MailInboxRepository(context: Context) {
         val normalizedFrom = summary.normalizedFrom.orEmpty()
         val matchedEntity = trustedEntities[normalizedFrom]
         val commandParseResult = if (matchedEntity?.enabled == true) {
-            message.bodyText?.let { MailCommandParser.parse(it, appContext) }
-                ?: Result.failure(
-                    MailCommandParseException(
-                        MailCommandDecisionCode.NoCommand,
-                        appContext.getString(R.string.message_mail_no_paysage_command)
-                    )
-                )
+            MailCommandParser.parseMessage(
+                subject = summary.subject,
+                body = message.bodyText,
+                context = appContext
+            )
         } else {
             null
         }
@@ -322,7 +319,8 @@ class MailInboxRepository(context: Context) {
                 code = MailCommandDecisionCode.SenderDisabled,
                 message = appContext.getString(R.string.message_mail_sender_disabled)
             )
-            secretStore.read(matchedEntity.email).isNullOrBlank() -> MailCommandDecision(
+            secretStore.read(matchedEntity.email).isNullOrBlank() &&
+                command?.requiresAuthenticator != false -> MailCommandDecision(
                 allowed = false,
                 code = MailCommandDecisionCode.InvalidAuthenticator,
                 message = appContext.getString(R.string.message_mail_sender_missing_secret)
@@ -353,19 +351,33 @@ class MailInboxRepository(context: Context) {
         var executed = false
         var resultMessage = decision.message
         if (decision.allowed && command != null) {
-            val nonceKey = MailCommandSecurityPolicy.nonceKey(summary.from, command.nonce)
-            usedNonces.add(nonceKey)
-            nonceDao.insert(
-                MailCommandNonceEntity(
-                    nonceKey = nonceKey,
-                    sender = MailCommandRecordPrivacy.senderFingerprint(normalizedFrom),
-                    nonce = MailCommandSecurityPolicy.nonceForStorage(command.nonce),
-                    action = command.action.wireName,
-                    usedAt = now,
-                    expiresAt = command.expiresAtEpochMillis
+            if (command.requiresAuthenticator) {
+                val nonceKey = MailCommandSecurityPolicy.nonceKey(summary.from, command.nonce)
+                usedNonces.add(nonceKey)
+                nonceDao.insert(
+                    MailCommandNonceEntity(
+                        nonceKey = nonceKey,
+                        sender = MailCommandRecordPrivacy.senderFingerprint(normalizedFrom),
+                        nonce = MailCommandSecurityPolicy.nonceForStorage(command.nonce),
+                        action = command.action.wireName,
+                        usedAt = now,
+                        expiresAt = command.expiresAtEpochMillis
+                    )
                 )
+            }
+            resultMessage = commandExecutor.execute(command)
+            val commandResultMessage = resultMessage
+            val receipt = receiptSender.send(
+                summary = summary,
+                command = command,
+                commandResult = commandResultMessage,
+                processedAtMillis = now
             )
-            resultMessage = executeCommand(command.action)
+            resultMessage = buildString {
+                append(commandResultMessage)
+                append('\n')
+                append(receipt.message)
+            }
             executed = true
         }
 
@@ -391,32 +403,6 @@ class MailInboxRepository(context: Context) {
 
     private fun classifyFetchFailure(error: Throwable): MailInboxFailureKind =
         MailInboxFailureClassifier.classify(error)
-
-    private suspend fun executeCommand(action: MailCommandAction): String =
-        when (action) {
-            MailCommandAction.Status -> {
-                val paused = forwardingControlStore.isPaused()
-                val pendingCount = database.pendingForwardDao().pendingCount()
-                if (paused) {
-                    appContext.getString(R.string.format_mail_status_forwarding_paused, pendingCount)
-                } else {
-                    appContext.getString(R.string.format_mail_status_forwarding_running, pendingCount)
-                }
-            }
-            MailCommandAction.RetryCache -> {
-                SmsReliabilityManager.enqueueImmediateRetry(appContext)
-                appContext.getString(R.string.message_mail_retry_cache_scheduled)
-            }
-            MailCommandAction.PauseForwarding -> {
-                forwardingControlStore.setPaused(true)
-                appContext.getString(R.string.message_sms_forwarding_paused)
-            }
-            MailCommandAction.ResumeForwarding -> {
-                forwardingControlStore.setPaused(false)
-                SmsReliabilityManager.enqueueImmediateRetry(appContext)
-                appContext.getString(R.string.message_sms_forwarding_resumed_retry_scheduled)
-            }
-        }
 
     companion object {
         private const val DEFAULT_REFRESH_LIMIT = 20
@@ -464,18 +450,24 @@ fun MailCommandAction.displayName(context: Context? = null): String =
     } else {
         when (this) {
             MailCommandAction.Status -> "Check status"
+            MailCommandAction.DeviceStatus -> "Device status"
+            MailCommandAction.NetworkSpeed -> "Network speed"
             MailCommandAction.RetryCache -> "Retry cache"
             MailCommandAction.PauseForwarding -> "Pause forwarding"
             MailCommandAction.ResumeForwarding -> "Resume forwarding"
+            MailCommandAction.ToggleForwarding -> "Toggle sharing"
         }
     }
 
 private fun MailCommandAction.displayNameRes(): Int =
     when (this) {
         MailCommandAction.Status -> R.string.action_mail_command_status
+        MailCommandAction.DeviceStatus -> R.string.action_mail_command_device_status
+        MailCommandAction.NetworkSpeed -> R.string.action_mail_command_network_speed
         MailCommandAction.RetryCache -> R.string.action_mail_command_retry_cache
         MailCommandAction.PauseForwarding -> R.string.action_mail_command_pause_forwarding
         MailCommandAction.ResumeForwarding -> R.string.action_mail_command_resume_forwarding
+        MailCommandAction.ToggleForwarding -> R.string.action_mail_command_toggle_forwarding
     }
 
 object MailCommandRecordPrivacy {

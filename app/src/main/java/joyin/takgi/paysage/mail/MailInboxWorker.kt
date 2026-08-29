@@ -5,7 +5,9 @@ import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
@@ -74,6 +76,26 @@ object MailInboxReliabilityManager {
         WorkManager.getInstance(context.applicationContext).cancelUniqueWork(WORK_NAME)
     }
 
+    fun enqueueImmediateCheck(context: Context) {
+        val appContext = context.applicationContext
+        val account = MailInboxAccountStore(appContext).read()
+        if (!account.enabled || !account.isConfigured) return
+        val request = OneTimeWorkRequestBuilder<MailInboxWorker>()
+            .setConstraints(
+                Constraints.Builder()
+                    .setRequiredNetworkType(NetworkType.CONNECTED)
+                    .build()
+            )
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 5, TimeUnit.MINUTES)
+            .build()
+        WorkManager.getInstance(appContext).enqueueUniqueWork(
+            IMMEDIATE_WORK_NAME,
+            ExistingWorkPolicy.REPLACE,
+            request
+        )
+    }
+
     private const val WORK_NAME = "paysage_mail_inbox_periodic"
+    private const val IMMEDIATE_WORK_NAME = "paysage_mail_inbox_immediate"
     private const val REPEAT_INTERVAL_MINUTES = 15L
 }

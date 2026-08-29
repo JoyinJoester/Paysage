@@ -1,10 +1,12 @@
 package joyin.takgi.paysage.ui.screens
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -26,6 +28,76 @@ import joyin.takgi.paysage.ui.components.M3ePanel
 import joyin.takgi.paysage.ui.components.M3eTopBar
 import joyin.takgi.paysage.ui.motion.PaysageAnimatedPage
 import kotlinx.coroutines.launch
+
+private data class FilterRuleTypeMeta(
+    val type: FilterType,
+    @StringRes val titleRes: Int,
+    @StringRes val descriptionRes: Int,
+    @StringRes val inputLabelRes: Int,
+    @StringRes val inputHelpRes: Int
+)
+
+private val filterRuleTypes = listOf(
+    FilterRuleTypeMeta(
+        type = FilterType.BODY_KEYWORD_BLOCK,
+        titleRes = R.string.filter_type_body_keyword_block,
+        descriptionRes = R.string.filter_desc_body_keyword_block,
+        inputLabelRes = R.string.label_filter_keyword,
+        inputHelpRes = R.string.helper_filter_body_keyword_block
+    ),
+    FilterRuleTypeMeta(
+        type = FilterType.BLACKLIST,
+        titleRes = R.string.filter_type_blacklist,
+        descriptionRes = R.string.filter_desc_blacklist,
+        inputLabelRes = R.string.label_phone_number_short,
+        inputHelpRes = R.string.helper_filter_sender_blacklist
+    ),
+    FilterRuleTypeMeta(
+        type = FilterType.WHITELIST,
+        titleRes = R.string.filter_type_whitelist,
+        descriptionRes = R.string.filter_desc_whitelist,
+        inputLabelRes = R.string.label_phone_number_short,
+        inputHelpRes = R.string.helper_filter_sender_whitelist
+    ),
+    FilterRuleTypeMeta(
+        type = FilterType.BODY_KEYWORD_ALLOW,
+        titleRes = R.string.filter_type_body_keyword_allow,
+        descriptionRes = R.string.filter_desc_body_keyword_allow,
+        inputLabelRes = R.string.label_filter_keyword,
+        inputHelpRes = R.string.helper_filter_keyword_allow
+    ),
+    FilterRuleTypeMeta(
+        type = FilterType.BODY_REGEX_BLOCK,
+        titleRes = R.string.filter_type_body_regex_block,
+        descriptionRes = R.string.filter_desc_body_regex_block,
+        inputLabelRes = R.string.label_filter_regex,
+        inputHelpRes = R.string.helper_filter_body_regex_block
+    )
+)
+
+private fun filterRuleTypeMeta(type: FilterType): FilterRuleTypeMeta {
+    if (type == FilterType.KEYWORD) {
+        return FilterRuleTypeMeta(
+            type = FilterType.KEYWORD,
+            titleRes = R.string.filter_type_keyword,
+            descriptionRes = R.string.filter_desc_keyword,
+            inputLabelRes = R.string.label_filter_keyword,
+            inputHelpRes = R.string.helper_filter_body_keyword_block
+        )
+    }
+    return filterRuleTypes.first { it.type == type }
+}
+
+private fun FilterType.usesBodyInput(): Boolean {
+    return this == FilterType.BODY_KEYWORD_BLOCK ||
+        this == FilterType.KEYWORD ||
+        this == FilterType.BODY_KEYWORD_ALLOW ||
+        this == FilterType.BODY_REGEX_BLOCK
+}
+
+private fun isValidRegex(pattern: String): Boolean {
+    return runCatching { Regex(pattern) }.isSuccess
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -135,7 +207,7 @@ fun FilterRuleItem(
     onDelete: () -> Unit,
     onToggle: () -> Unit
 ) {
-    val context = LocalContext.current
+    val meta = filterRuleTypeMeta(rule.type)
     M3ePanel(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -144,12 +216,13 @@ fun FilterRuleItem(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = when (rule.type) {
-                        FilterType.WHITELIST -> context.getString(R.string.filter_type_whitelist)
-                        FilterType.BLACKLIST -> context.getString(R.string.filter_type_blacklist)
-                        FilterType.KEYWORD -> context.getString(R.string.filter_type_keyword)
-                    },
+                    text = stringResource(meta.titleRes),
                     style = MaterialTheme.typography.labelSmall
+                )
+                Text(
+                    text = stringResource(meta.descriptionRes),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(text = rule.value, style = MaterialTheme.typography.bodyLarge)
             }
@@ -173,53 +246,55 @@ fun AddRulePage(
     onDismiss: () -> Unit,
     onAdd: (FilterType, String) -> Unit
 ) {
-    val context = LocalContext.current
-    var selectedType by remember { mutableStateOf(FilterType.WHITELIST) }
+    var selectedType by remember { mutableStateOf(FilterType.BODY_KEYWORD_BLOCK) }
     var value by remember { mutableStateOf("") }
+    val trimmedValue = value.trim()
+    val selectedMeta = filterRuleTypeMeta(selectedType)
+    val hasRegexError = selectedType == FilterType.BODY_REGEX_BLOCK &&
+        trimmedValue.isNotEmpty() &&
+        !isValidRegex(trimmedValue)
 
     Column(
         modifier = modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp)
             .padding(vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            FilterChip(
-                selected = selectedType == FilterType.WHITELIST,
-                onClick = { selectedType = FilterType.WHITELIST },
-                label = { Text(stringResource(R.string.filter_type_whitelist)) }
-            )
-            FilterChip(
-                selected = selectedType == FilterType.BLACKLIST,
-                onClick = { selectedType = FilterType.BLACKLIST },
-                label = { Text(stringResource(R.string.filter_type_blacklist)) }
-            )
-            FilterChip(
-                selected = selectedType == FilterType.KEYWORD,
-                onClick = { selectedType = FilterType.KEYWORD },
-                label = { Text(stringResource(R.string.filter_type_keyword)) }
-            )
+        Text(
+            text = stringResource(R.string.label_filter_rule_type),
+            style = MaterialTheme.typography.titleMedium
+        )
+
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            filterRuleTypes.forEach { meta ->
+                FilterRuleTypeOption(
+                    meta = meta,
+                    selected = selectedType == meta.type,
+                    onClick = { selectedType = meta.type }
+                )
+            }
         }
 
         OutlinedTextField(
             value = value,
             onValueChange = { value = it },
-            label = {
+            label = { Text(stringResource(selectedMeta.inputLabelRes)) },
+            supportingText = {
                 Text(
-                    when (selectedType) {
-                        FilterType.KEYWORD -> context.getString(R.string.filter_type_keyword)
-                        else -> context.getString(R.string.label_phone_number_short)
+                    if (hasRegexError) {
+                        stringResource(R.string.message_filter_regex_invalid)
+                    } else {
+                        stringResource(selectedMeta.inputHelpRes)
                     }
                 )
             },
+            isError = hasRegexError,
+            minLines = if (selectedType.usesBodyInput()) 2 else 1,
+            maxLines = if (selectedType.usesBodyInput()) 5 else 1,
             modifier = Modifier.fillMaxWidth()
         )
-
-        Spacer(modifier = Modifier.weight(1f))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -232,11 +307,53 @@ fun AddRulePage(
                 Text(stringResource(R.string.action_cancel))
             }
             Button(
-                onClick = { onAdd(selectedType, value) },
-                enabled = value.isNotBlank(),
+                onClick = { onAdd(selectedType, trimmedValue) },
+                enabled = trimmedValue.isNotEmpty() && !hasRegexError,
                 modifier = Modifier.weight(1f)
             ) {
                 Text(stringResource(R.string.action_add))
+            }
+        }
+    }
+}
+
+@Composable
+private fun FilterRuleTypeOption(
+    meta: FilterRuleTypeMeta,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    M3ePanel(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        contentPadding = PaddingValues(14.dp),
+        prominent = selected,
+        elevated = selected
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            RadioButton(
+                selected = selected,
+                onClick = onClick
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(meta.titleRes),
+                    style = MaterialTheme.typography.titleSmall
+                )
+                Text(
+                    text = stringResource(meta.descriptionRes),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (selected) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                )
             }
         }
     }

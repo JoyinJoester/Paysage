@@ -62,7 +62,7 @@ class EsimDownloadResultStore(context: Context) {
             smdxSubjectCode = preferences.getString(KEY_SMDX_SUBJECT, null),
             smdxReasonCode = preferences.getString(KEY_SMDX_REASON, null),
             updatedAtMillis = preferences.getLong(KEY_UPDATED_AT, 0L)
-        )
+        ).redacted()
     }
 
     fun readHistory(): List<EsimDownloadResult> {
@@ -84,7 +84,7 @@ class EsimDownloadResultStore(context: Context) {
                 smdxSubjectCode = preferences.getString(historyKey(index, KEY_SMDX_SUBJECT), null),
                 smdxReasonCode = preferences.getString(historyKey(index, KEY_SMDX_REASON), null),
                 updatedAtMillis = preferences.getLong(historyKey(index, KEY_UPDATED_AT), 0L)
-            )
+            ).redacted()
         }
     }
 
@@ -118,19 +118,20 @@ class EsimDownloadResultStore(context: Context) {
     }
 
     fun write(result: EsimDownloadResult) {
+        val safeResult = result.redacted()
         preferences.edit()
-            .putString(KEY_REQUEST_ID, result.requestId)
-            .putString(KEY_STATUS, result.status.name)
-            .putString(KEY_MESSAGE, result.message)
-            .putNullableInt(KEY_RESULT_CODE, result.resultCode)
-            .putNullableInt(KEY_DETAILED_CODE, result.detailedCode)
-            .putNullableInt(KEY_OPERATION_CODE, result.operationCode)
-            .putNullableInt(KEY_ERROR_CODE, result.errorCode)
-            .putString(KEY_SMDX_SUBJECT, result.smdxSubjectCode)
-            .putString(KEY_SMDX_REASON, result.smdxReasonCode)
-            .putLong(KEY_UPDATED_AT, result.updatedAtMillis)
+            .putString(KEY_REQUEST_ID, safeResult.requestId)
+            .putString(KEY_STATUS, safeResult.status.name)
+            .putString(KEY_MESSAGE, safeResult.message)
+            .putNullableInt(KEY_RESULT_CODE, safeResult.resultCode)
+            .putNullableInt(KEY_DETAILED_CODE, safeResult.detailedCode)
+            .putNullableInt(KEY_OPERATION_CODE, safeResult.operationCode)
+            .putNullableInt(KEY_ERROR_CODE, safeResult.errorCode)
+            .putString(KEY_SMDX_SUBJECT, safeResult.smdxSubjectCode)
+            .putString(KEY_SMDX_REASON, safeResult.smdxReasonCode)
+            .putLong(KEY_UPDATED_AT, safeResult.updatedAtMillis)
             .apply()
-        writeHistory(EsimDownloadHistoryPolicy.upsert(readHistory(), result))
+        writeHistory(EsimDownloadHistoryPolicy.upsert(readHistory(), safeResult))
     }
 
     private fun writeHistory(history: List<EsimDownloadResult>) {
@@ -190,6 +191,37 @@ class EsimDownloadResultStore(context: Context) {
     }
 }
 
+private fun EsimDownloadResult.redacted(): EsimDownloadResult =
+    copy(
+        message = EsimSensitiveTextRedactor.redact(message),
+        smdxSubjectCode = smdxSubjectCode?.let(EsimSensitiveTextRedactor::redact),
+        smdxReasonCode = smdxReasonCode?.let(EsimSensitiveTextRedactor::redact)
+    )
+
+object EsimSensitiveTextRedactor {
+    private val lpaCodeRegex = Regex("""LPA:\d\$[^\s]+""", RegexOption.IGNORE_CASE)
+    private val sensitiveFieldRegex = Regex(
+        pattern = """(?i)\b(activation|confirmation|matching|password|token|secret|key|code)\s*[:=]\s*[^\s,;]+|(?:激活码|确认码|匹配码|授权码|指令密钥|密码|令牌)\s*[:：=]\s*[^\s,;，；]+"""
+    )
+    private val longHexRegex = Regex("""\b(?:[0-9A-Fa-f]{2}){12,}\b""")
+    private val longNumberRegex = Regex("""\b\d{18,32}\b""")
+
+    fun redact(value: String): String =
+        value
+            .replace(lpaCodeRegex, "LPA:[redacted]")
+            .replace(sensitiveFieldRegex) { match ->
+                val separatorIndex = match.value.indexOfFirst { char -> char == ':' || char == '：' || char == '=' }
+                val prefix = if (separatorIndex >= 0) {
+                    match.value.substring(0, separatorIndex)
+                } else {
+                    "sensitive"
+                }
+                "$prefix:[redacted]"
+            }
+            .replace(longHexRegex, "[hex-redacted]")
+            .replace(longNumberRegex, "[number-redacted]")
+}
+
 object EsimDownloadHistoryPolicy {
     const val MAX_HISTORY_ITEMS: Int = 12
 
@@ -204,11 +236,18 @@ object EsimDownloadHistoryPolicy {
 
     fun title(context: Context, result: EsimDownloadResult): String {
         val operation = when {
-            result.requestId.startsWith("download-") -> context.getString(R.string.operation_download_esim)
+            result.requestId.startsWith("download-") ||
+                result.requestId.startsWith("external-download-") -> context.getString(R.string.operation_download_esim)
             result.requestId.startsWith("switch-port-") -> context.getString(R.string.operation_switch_port)
-            result.requestId.startsWith("switch-") -> context.getString(R.string.operation_switch_esim)
-            result.requestId.startsWith("delete-") -> context.getString(R.string.operation_delete_esim)
-            result.requestId.startsWith("rename-") -> context.getString(R.string.operation_rename_esim)
+            result.requestId.startsWith("switch-") ||
+                result.requestId.startsWith("external-switch-") ||
+                result.requestId.startsWith("external-disable-") -> context.getString(R.string.operation_switch_esim)
+            result.requestId.startsWith("delete-") ||
+                result.requestId.startsWith("external-delete-") -> context.getString(R.string.operation_delete_esim)
+            result.requestId.startsWith("rename-") ||
+                result.requestId.startsWith("external-rename-") -> context.getString(R.string.operation_rename_esim)
+            result.requestId.startsWith("external-memory-reset-") -> context.getString(R.string.operation_external_euicc_memory_reset)
+            result.requestId.startsWith("external-notification-") -> context.getString(R.string.operation_external_euicc_notification)
             else -> context.getString(R.string.operation_esim_system)
         }
         return context.getString(R.string.format_esim_history_title, operation, result.status.label(context))

@@ -13,11 +13,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.BatteryAlert
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Colorize
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -59,8 +61,10 @@ fun SettingsScreen(
     selectedTab: Int,
     onTabSelected: (Int) -> Unit,
     onForwardingSettingsClick: () -> Unit,
-    onEuiccSettingsClick: () -> Unit,
+    onPermissionManagementClick: () -> Unit,
+    onDeveloperSettingsClick: () -> Unit,
     onColorSchemeClick: () -> Unit,
+    onBatteryAlertSettingsClick: () -> Unit,
     appearanceSettings: PaysageAppearanceSettings,
     onAppearanceSettingsChange: (PaysageAppearanceSettings) -> Unit,
     currentLanguage: AppLanguage,
@@ -127,10 +131,22 @@ fun SettingsScreen(
                         onClick = onForwardingSettingsClick
                     )
                     M3eSettingsNavigationItem(
-                        icon = Icons.Default.Phone,
-                        title = stringResource(R.string.section_euicc_settings),
-                        subtitle = stringResource(R.string.summary_euicc_settings),
-                        onClick = onEuiccSettingsClick
+                        icon = Icons.Default.Security,
+                        title = stringResource(R.string.screen_permission_management_title),
+                        subtitle = stringResource(R.string.summary_permission_management),
+                        onClick = onPermissionManagementClick
+                    )
+                    M3eSettingsNavigationItem(
+                        icon = Icons.Default.BatteryAlert,
+                        title = stringResource(R.string.section_battery_alerts),
+                        subtitle = stringResource(R.string.summary_battery_alert_settings),
+                        onClick = onBatteryAlertSettingsClick
+                    )
+                    M3eSettingsNavigationItem(
+                        icon = Icons.Default.BugReport,
+                        title = stringResource(R.string.screen_developer_settings_title),
+                        subtitle = stringResource(R.string.summary_developer_settings),
+                        onClick = onDeveloperSettingsClick
                     )
                 }
             }

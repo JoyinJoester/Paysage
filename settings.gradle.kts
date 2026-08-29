@@ -21,4 +21,6 @@ dependencyResolutionManagement {
 
 rootProject.name = "Paysage"
 include(":app")
+include(":lpac-jni")
+project(":lpac-jni").projectDir = file("external/lpac-jni")
  

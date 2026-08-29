@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
@@ -60,6 +61,18 @@ object SmsReliabilityManager {
         )
     }
 
+    fun startKeepAlive(context: Context): Boolean {
+        val appContext = context.applicationContext
+        val intent = Intent(appContext, SmsKeepAliveService::class.java)
+        return runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                appContext.startForegroundService(intent)
+            } else {
+                appContext.startService(intent)
+            }
+        }.isSuccess
+    }
+
     fun scheduleAlarm(context: Context) {
         val alarmManager = context.getSystemService(AlarmManager::class.java) ?: return
         val intent = Intent(context, SmsRetryAlarmReceiver::class.java)
@@ -88,33 +101,35 @@ object SmsReliabilityManager {
     }
 
     fun openBatteryOptimizationWizard(activity: Activity): Boolean {
-        return try {
-            val requestIntent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
-                .setData(Uri.parse("package:${activity.packageName}"))
-            activity.startActivity(requestIntent)
-            true
-        } catch (_: ActivityNotFoundException) {
-            openBatteryOptimizationSettings(activity)
-        } catch (_: SecurityException) {
-            openBatteryOptimizationSettings(activity)
-        }
+        if (isIgnoringBatteryOptimizations(activity)) return true
+        val packageUri = Uri.parse("package:${activity.packageName}")
+        return activity.tryStartSettingsActivity(
+            Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                .setData(packageUri)
+        ) || openBatteryOptimizationSettings(activity)
     }
 
     fun openBatteryOptimizationSettings(activity: Activity): Boolean {
+        val packageUri = Uri.parse("package:${activity.packageName}")
+        return listOf(
+            Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS),
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).setData(packageUri),
+            Intent(Settings.ACTION_SETTINGS)
+        ).any { intent -> activity.tryStartSettingsActivity(intent) }
+    }
+
+    private fun Activity.tryStartSettingsActivity(intent: Intent): Boolean {
+        val resolved = intent.resolveActivity(packageManager) != null ||
+            packageManager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY).isNotEmpty()
+        if (!resolved) return false
         return try {
-            activity.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+            startActivity(intent)
             true
         } catch (_: ActivityNotFoundException) {
-            try {
-                activity.startActivity(
-                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                        .setData(Uri.parse("package:${activity.packageName}"))
-                )
-                true
-            } catch (_: ActivityNotFoundException) {
-                false
-            }
+            false
         } catch (_: SecurityException) {
+            false
+        } catch (_: RuntimeException) {
             false
         }
     }

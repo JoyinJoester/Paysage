@@ -33,6 +33,10 @@ class SmsForwarder(context: Context) {
         )
 
     suspend fun retryPending(limit: Int = DEFAULT_RETRY_LIMIT): SmsRetrySummary {
+        if (forwardingControlStore.isPaused()) {
+            return SmsRetrySummary(attempted = 0, succeeded = 0, failed = 0)
+        }
+
         val dueMessages = pendingDao.dueMessages(System.currentTimeMillis(), limit)
         var succeeded = 0
         var failed = 0

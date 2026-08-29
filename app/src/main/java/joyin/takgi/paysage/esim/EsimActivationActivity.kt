@@ -8,9 +8,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -30,18 +32,24 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -56,6 +64,12 @@ import joyin.takgi.paysage.ui.theme.AppearanceSettingsStore
 import joyin.takgi.paysage.ui.theme.PaysageTheme
 import joyin.takgi.paysage.ui.theme.resolveDarkTheme
 import joyin.takgi.paysage.ui.theme.withPaysageLocale
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
+import net.typeblog.lpac_jni.ProfileDownloadState
+import net.typeblog.lpac_jni.RemoteProfileInfo
 
 class EsimActivationActivity : ComponentActivity() {
     override fun attachBaseContext(newBase: Context) {
@@ -111,6 +125,7 @@ private fun EsimActivationPage(
     onSubmitted: (String) -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
     val gateway = remember { EsimSystemGateway(context) }
     val settingsStore = remember { EsimSettingsStore(context) }
     val settings = remember { settingsStore.read() }
@@ -146,8 +161,54 @@ private fun EsimActivationPage(
             }
         )
     }
+    var isSubmitting by remember { mutableStateOf(false) }
+    var isCheckingTargets by remember { mutableStateOf(false) }
+    var hasCheckedTargets by remember { mutableStateOf(false) }
+    var externalSources by remember { mutableStateOf<List<EsimExternalProfileSource>>(emptyList()) }
+    var selectedDownloadTarget by remember { mutableStateOf<String?>(null) }
+    var downloadProgress by remember { mutableStateOf<EsimExternalDownloadUiState?>(null) }
+    var metadataConfirmation by remember { mutableStateOf<EsimExternalMetadataConfirmation?>(null) }
     val fullLpaRequiresConfirmationMessage = stringResource(R.string.message_lpa_split_full_requires_confirmation)
     val fullLpaSplitMessage = stringResource(R.string.message_lpa_split_full)
+    val checkingTargetsMessage = stringResource(R.string.message_checking_esim_download_targets)
+    val targetsUnavailableMessage = stringResource(R.string.message_no_external_download_target)
+    val targetsFoundFormat = stringResource(R.string.format_esim_download_targets_found)
+    val targetsCheckFailedFormat = stringResource(R.string.format_esim_download_targets_check_failed)
+    val downloadStartFailedFormat = stringResource(R.string.format_esim_download_start_failed)
+
+    suspend fun refreshDownloadTargets() {
+        isCheckingTargets = true
+        statusMessage = checkingTargetsMessage
+        val result = runCatching { gateway.externalProfileSummaries() }
+        result.onSuccess { readResult ->
+            externalSources = readResult.availableSources
+            hasCheckedTargets = true
+            val knownTargets = readResult.availableSources.map { it.identity }.toSet()
+            selectedDownloadTarget = when {
+                selectedDownloadTarget == SYSTEM_DOWNLOAD_TARGET &&
+                    supportState.canRequestProfileDownload -> SYSTEM_DOWNLOAD_TARGET
+                selectedDownloadTarget in knownTargets -> selectedDownloadTarget
+                else -> null
+            }
+            statusMessage = if (readResult.availableSources.isNotEmpty()) {
+                targetsFoundFormat.format(readResult.availableSources.size)
+            } else if (supportState.canRequestProfileDownload) {
+                context.getString(R.string.message_system_esim_download_available)
+            } else {
+                targetsUnavailableMessage
+            }
+        }.onFailure { error ->
+            externalSources = emptyList()
+            hasCheckedTargets = true
+            selectedDownloadTarget = null
+            statusMessage = targetsCheckFailedFormat.format(error.message.orEmpty().ifBlank { error.javaClass.simpleName })
+        }
+        isCheckingTargets = false
+    }
+
+    LaunchedEffect(Unit) {
+        refreshDownloadTargets()
+    }
 
     fun applyActivationCode(code: EsimActivationCode, message: String) {
         smdpInput = code.smdpAddress.orEmpty()
@@ -199,7 +260,9 @@ private fun EsimActivationPage(
             standaloneConfirmationCodeProvided = confirmationInput.isNotBlank()
         )
     }
-    val canDownload = supportState.canRequestProfileDownload &&
+    val canDownload = !isSubmitting &&
+        !isCheckingTargets &&
+        selectedDownloadTarget != null &&
         activationCode?.isValid == true &&
         preflight?.hasErrors == false
     val confirmationLabel = if (confirmationCodeRequired) {
@@ -235,11 +298,76 @@ private fun EsimActivationPage(
                 Button(
                     onClick = {
                         activationCode?.let { code ->
-                            val result = gateway.requestProfileDownload(
-                                activationCode = code,
-                                switchAfterDownload = settings.switchAfterDownload
-                            )
-                            onSubmitted(result.message)
+                            scope.launch {
+                                isSubmitting = true
+                                val target = selectedDownloadTarget
+                                statusMessage = context.getString(R.string.message_starting_esim_download_target)
+                                val result = runCatching {
+                                    if (target == null) {
+                                        EsimDownloadStartResult(
+                                            started = false,
+                                            requestId = "",
+                                            message = context.getString(R.string.message_select_esim_download_target)
+                                        )
+                                } else if (target == SYSTEM_DOWNLOAD_TARGET) {
+                                    gateway.requestProfileDownload(
+                                        activationCode = code,
+                                        switchAfterDownload = settings.switchAfterDownload
+                                    )
+                                } else {
+                                    downloadProgress = EsimExternalDownloadUiState(
+                                        titleRes = R.string.title_esim_download_phase_preparing,
+                                        messageRes = R.string.message_esim_download_phase_preparing,
+                                        progress = 0
+                                    )
+                                    gateway.requestDownloadExternalProfile(
+                                        activationCode = code,
+                                        targetSourceIdentity = target,
+                                        onDownloadState = { state ->
+                                            val uiState = state.toExternalDownloadUiState()
+                                            if (state is ProfileDownloadState.ConfirmingDownload) {
+                                                val confirmation = CompletableDeferred<Boolean>()
+                                                scope.launch {
+                                                    downloadProgress = uiState
+                                                    metadataConfirmation = EsimExternalMetadataConfirmation(
+                                                        metadata = state.metadata,
+                                                        decision = confirmation
+                                                    )
+                                                }
+                                                val accepted = runBlocking {
+                                                    withTimeoutOrNull(METADATA_CONFIRMATION_TIMEOUT_MS) {
+                                                        confirmation.await()
+                                                    } ?: false
+                                                }
+                                                scope.launch {
+                                                    metadataConfirmation = null
+                                                }
+                                                accepted
+                                            } else {
+                                                scope.launch {
+                                                    downloadProgress = uiState
+                                                }
+                                                true
+                                            }
+                                        }
+                                    )
+                                }
+                            }.getOrElse { error ->
+                                    EsimDownloadStartResult(
+                                        started = false,
+                                        requestId = "",
+                                        message = downloadStartFailedFormat.format(
+                                            error.message.orEmpty().ifBlank { error.javaClass.simpleName }
+                                        )
+                                    )
+                                }
+                                isSubmitting = false
+                                if (target == SYSTEM_DOWNLOAD_TARGET || result.started) {
+                                    onSubmitted(result.message)
+                                } else {
+                                    statusMessage = result.message
+                                }
+                            }
                         }
                     },
                     enabled = canDownload,
@@ -251,7 +379,9 @@ private fun EsimActivationPage(
                     Icon(Icons.Default.CheckCircle, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        if (settings.switchAfterDownload) {
+                        if (isSubmitting) {
+                            stringResource(R.string.status_checking)
+                        } else if (settings.switchAfterDownload) {
                             stringResource(R.string.action_download_and_enable)
                         } else {
                             stringResource(R.string.action_download_only)
@@ -337,6 +467,89 @@ private fun EsimActivationPage(
             item {
                 M3ePanel(modifier = Modifier.fillMaxWidth()) {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(stringResource(R.string.title_esim_download_target), style = MaterialTheme.typography.titleLarge)
+                        Text(
+                            stringResource(R.string.message_esim_download_target_hint),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        OutlinedButton(
+                            onClick = {
+                                scope.launch {
+                                    refreshDownloadTargets()
+                                }
+                            },
+                            enabled = !isCheckingTargets && !isSubmitting
+                        ) {
+                            Text(
+                                if (isCheckingTargets) {
+                                    stringResource(R.string.status_checking)
+                                } else {
+                                    stringResource(R.string.action_refresh_download_targets)
+                                }
+                            )
+                        }
+                        if (!hasCheckedTargets) {
+                            Text(
+                                stringResource(R.string.message_esim_download_targets_not_checked),
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        } else {
+                            externalSources.forEach { source ->
+                                DownloadTargetRow(
+                                    title = source.label,
+                                    subtitle = stringResource(
+                                        R.string.format_external_esim_target_summary,
+                                        localizedSourceKind(source.kind),
+                                        source.isdrAidLabel
+                                    ),
+                                    selected = selectedDownloadTarget == source.identity,
+                                    onClick = { selectedDownloadTarget = source.identity }
+                                )
+                            }
+                            if (supportState.canRequestProfileDownload) {
+                                DownloadTargetRow(
+                                    title = stringResource(R.string.title_system_esim_download_target),
+                                    subtitle = stringResource(R.string.message_system_esim_download_target_hint),
+                                    selected = selectedDownloadTarget == SYSTEM_DOWNLOAD_TARGET,
+                                    onClick = { selectedDownloadTarget = SYSTEM_DOWNLOAD_TARGET }
+                                )
+                            }
+                            if (externalSources.isEmpty() && !supportState.canRequestProfileDownload) {
+                                Text(
+                                    stringResource(R.string.message_no_external_download_target),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            } else if (selectedDownloadTarget == null) {
+                                Text(
+                                    stringResource(R.string.message_select_esim_download_target),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (downloadProgress != null || metadataConfirmation != null) {
+                item {
+                    M3ePanel(modifier = Modifier.fillMaxWidth()) {
+                        ExternalDownloadProgressPanel(
+                            progress = downloadProgress,
+                            metadataConfirmation = metadataConfirmation,
+                            onMetadataDecision = { accepted ->
+                                metadataConfirmation?.decision?.complete(accepted)
+                                metadataConfirmation = null
+                            }
+                        )
+                    }
+                }
+            }
+
+            item {
+                M3ePanel(modifier = Modifier.fillMaxWidth()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text(stringResource(R.string.title_local_preflight), style = MaterialTheme.typography.titleLarge)
                         if (preflight == null) {
                             Text(
@@ -386,6 +599,103 @@ private fun EsimActivationPage(
         }
     }
 }
+
+@Composable
+private fun DownloadTargetRow(
+    title: String,
+    subtitle: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        RadioButton(selected = selected, onClick = onClick)
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(title, fontWeight = FontWeight.SemiBold)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+@Composable
+private fun ExternalDownloadProgressPanel(
+    progress: EsimExternalDownloadUiState?,
+    metadataConfirmation: EsimExternalMetadataConfirmation?,
+    onMetadataDecision: (Boolean) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(stringResource(R.string.title_esim_download_progress), style = MaterialTheme.typography.titleLarge)
+        progress?.let { state ->
+            Text(stringResource(state.titleRes), fontWeight = FontWeight.SemiBold)
+            Text(stringResource(state.messageRes), style = MaterialTheme.typography.bodyMedium)
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            Text(
+                stringResource(R.string.format_esim_download_progress_percent, state.progress),
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+        metadataConfirmation?.let { confirmation ->
+            HorizontalDivider()
+            Text(
+                stringResource(R.string.title_confirm_external_profile_download),
+                fontWeight = FontWeight.SemiBold
+            )
+            val metadata = confirmation.metadata
+            if (metadata == null) {
+                Text(
+                    stringResource(R.string.message_external_profile_metadata_missing),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            } else {
+                MetadataLine(
+                    label = stringResource(R.string.label_remote_profile_provider),
+                    value = metadata.providerName.ifBlank { stringResource(R.string.value_unknown) }
+                )
+                MetadataLine(
+                    label = stringResource(R.string.label_remote_profile_name),
+                    value = metadata.name.ifBlank { stringResource(R.string.value_unknown) }
+                )
+                MetadataLine(
+                    label = stringResource(R.string.label_remote_profile_iccid),
+                    value = metadata.iccid.maskSensitiveIccid()
+                )
+                MetadataLine(
+                    label = stringResource(R.string.label_remote_profile_class),
+                    value = metadata.profileClass.name
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { onMetadataDecision(false) }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+                Button(onClick = { onMetadataDecision(true) }) {
+                    Text(stringResource(R.string.action_confirm_profile_download))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MetadataLine(label: String, value: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(label, style = MaterialTheme.typography.labelMedium)
+        Text(value, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+@Composable
+private fun localizedSourceKind(kind: EsimExternalProfileSourceKind): String =
+    when (kind) {
+        EsimExternalProfileSourceKind.UsbCcid -> stringResource(R.string.label_external_esim_target_usb)
+        EsimExternalProfileSourceKind.Omapi -> stringResource(R.string.label_external_esim_target_omapi)
+    }
 
 @Composable
 private fun SensitiveOutlinedTextField(
@@ -463,3 +773,57 @@ private fun activationCodeFromInput(input: String): EsimActivationCode? {
         .getOrNull()
         ?.takeIf { it.isValid }
 }
+
+private data class EsimExternalDownloadUiState(
+    val titleRes: Int,
+    val messageRes: Int,
+    val progress: Int
+)
+
+private data class EsimExternalMetadataConfirmation(
+    val metadata: RemoteProfileInfo?,
+    val decision: CompletableDeferred<Boolean>
+)
+
+private fun ProfileDownloadState.toExternalDownloadUiState(): EsimExternalDownloadUiState =
+    when (this) {
+        is ProfileDownloadState.Preparing -> EsimExternalDownloadUiState(
+            titleRes = R.string.title_esim_download_phase_preparing,
+            messageRes = R.string.message_esim_download_phase_preparing,
+            progress = 0
+        )
+        is ProfileDownloadState.Connecting -> EsimExternalDownloadUiState(
+            titleRes = R.string.title_esim_download_phase_connecting,
+            messageRes = R.string.message_esim_download_phase_connecting,
+            progress = 20
+        )
+        is ProfileDownloadState.Authenticating -> EsimExternalDownloadUiState(
+            titleRes = R.string.title_esim_download_phase_authenticating,
+            messageRes = R.string.message_esim_download_phase_authenticating,
+            progress = 40
+        )
+        is ProfileDownloadState.ConfirmingDownload -> EsimExternalDownloadUiState(
+            titleRes = R.string.title_esim_download_phase_confirming,
+            messageRes = R.string.message_esim_download_phase_confirming,
+            progress = 50
+        )
+        is ProfileDownloadState.Downloading -> EsimExternalDownloadUiState(
+            titleRes = R.string.title_esim_download_phase_downloading,
+            messageRes = R.string.message_esim_download_phase_downloading,
+            progress = 60
+        )
+        is ProfileDownloadState.Finalizing -> EsimExternalDownloadUiState(
+            titleRes = R.string.title_esim_download_phase_finalizing,
+            messageRes = R.string.message_esim_download_phase_finalizing,
+            progress = 80
+        )
+    }
+
+private fun String.maskSensitiveIccid(): String {
+    val clean = trim()
+    if (clean.length <= 8) return clean.ifBlank { "-" }
+    return "${clean.take(4)}****${clean.takeLast(4)}"
+}
+
+private const val SYSTEM_DOWNLOAD_TARGET = "system"
+private const val METADATA_CONFIRMATION_TIMEOUT_MS = 60_000L

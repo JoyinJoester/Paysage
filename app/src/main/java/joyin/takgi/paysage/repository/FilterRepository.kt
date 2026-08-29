@@ -17,22 +17,39 @@ class FilterRepository(private val filterDao: FilterDao) {
     suspend fun delete(rule: FilterRule) = filterDao.delete(rule)
 
     suspend fun shouldForward(sender: String, content: String): Boolean {
-        val rules = allRules.first().filter { it.isEnabled }
+        val rules = allRules.first()
+            .filter { it.isEnabled }
+            .map { it.copy(value = it.value.trim()) }
+            .filter { it.value.isNotEmpty() }
 
         val blacklists = rules.filter { it.type == FilterType.BLACKLIST }
         val whitelists = rules.filter { it.type == FilterType.WHITELIST }
-        val keywords = rules.filter { it.type == FilterType.KEYWORD }
+        val bodyKeywordBlocks = rules.filter {
+            it.type == FilterType.KEYWORD || it.type == FilterType.BODY_KEYWORD_BLOCK
+        }
+        val bodyKeywordAllows = rules.filter { it.type == FilterType.BODY_KEYWORD_ALLOW }
+        val bodyRegexBlocks = rules.filter { it.type == FilterType.BODY_REGEX_BLOCK }
 
-        if (blacklists.any { sender.contains(it.value) }) return false
+        if (blacklists.any { sender.contains(it.value, ignoreCase = true) }) return false
 
-        if (whitelists.isNotEmpty() && !whitelists.any { sender.contains(it.value) }) {
+        if (whitelists.isNotEmpty() && !whitelists.any { sender.contains(it.value, ignoreCase = true) }) {
             return false
         }
 
-        if (keywords.isNotEmpty()) {
-            return keywords.any { content.contains(it.value, ignoreCase = true) }
+        if (bodyKeywordBlocks.any { content.contains(it.value, ignoreCase = true) }) return false
+
+        if (bodyRegexBlocks.any { it.matchesContent(content) }) return false
+
+        if (bodyKeywordAllows.isNotEmpty()) {
+            return bodyKeywordAllows.any { content.contains(it.value, ignoreCase = true) }
         }
 
         return true
+    }
+
+    private fun FilterRule.matchesContent(content: String): Boolean {
+        return runCatching {
+            Regex(value, RegexOption.IGNORE_CASE).containsMatchIn(content)
+        }.getOrDefault(false)
     }
 }

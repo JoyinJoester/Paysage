@@ -6,7 +6,10 @@ import androidx.room.PrimaryKey
 enum class FilterType {
     WHITELIST,
     BLACKLIST,
-    KEYWORD
+    KEYWORD,
+    BODY_KEYWORD_BLOCK,
+    BODY_REGEX_BLOCK,
+    BODY_KEYWORD_ALLOW
 }
 
 @Entity(tableName = "filter_rules")

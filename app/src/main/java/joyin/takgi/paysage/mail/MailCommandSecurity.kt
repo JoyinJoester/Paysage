@@ -12,13 +12,23 @@ import javax.mail.internet.InternetAddress
 
 enum class MailCommandAction(val wireName: String) {
     Status("status"),
+    DeviceStatus("device-status"),
+    NetworkSpeed("network-speed"),
     RetryCache("retry-cache"),
     PauseForwarding("pause-forwarding"),
-    ResumeForwarding("resume-forwarding");
+    ResumeForwarding("resume-forwarding"),
+    ToggleForwarding("shareswitch");
 
     companion object {
-        fun fromWireName(value: String): MailCommandAction? =
-            entries.firstOrNull { it.wireName == value.trim().lowercase(Locale.ROOT) }
+        fun fromWireName(value: String): MailCommandAction? {
+            val normalized = value.trim().lowercase(Locale.ROOT)
+            return entries.firstOrNull { it.wireName == normalized } ?: when (normalized) {
+                "sw" -> ToggleForwarding
+                "sta" -> DeviceStatus
+                "net", "network" -> NetworkSpeed
+                else -> null
+            }
+        }
     }
 }
 
@@ -28,7 +38,9 @@ data class ParsedMailCommand(
     val signature: String?,
     val expiresRaw: String,
     val expiresAtEpochMillis: Long,
-    val nonce: String
+    val nonce: String,
+    val argument: String? = null,
+    val requiresAuthenticator: Boolean = true
 )
 
 data class TrustedMailSender(
@@ -89,14 +101,46 @@ object MailAddressNormalizer {
 }
 
 object MailCommandParser {
+    fun parseMessage(
+        subject: String,
+        body: String?,
+        context: Context? = null
+    ): Result<ParsedMailCommand> {
+        val bodyResult = parse(body.orEmpty(), context)
+        val bodyError = bodyResult.exceptionOrNull() as? MailCommandParseException
+        if (bodyResult.isSuccess || bodyError?.code != MailCommandDecisionCode.NoCommand) {
+            return bodyResult
+        }
+
+        val subjectResult = parse(subject, context)
+        val subjectError = subjectResult.exceptionOrNull() as? MailCommandParseException
+        return if (subjectResult.isSuccess || subjectError?.code != MailCommandDecisionCode.NoCommand) {
+            subjectResult
+        } else {
+            bodyResult
+        }
+    }
+
     fun parse(body: String, context: Context? = null): Result<ParsedMailCommand> = runCatching {
         val rawLines = body.lineSequence().toList()
         val trimmedNonBlankLines = rawLines
             .map { it.trim() }
             .filter { it.isNotBlank() }
             .toList()
-
+        val simpleCommandLines = trimmedNonBlankLines.filter { isSimpleCommandLine(it) }
         val commandLines = trimmedNonBlankLines.filter { isCommandLine(it) }
+
+        if (simpleCommandLines.isNotEmpty()) {
+            val distinctSimpleCommandLines = simpleCommandLines.distinctBy { normalizeSimpleCommandLine(it) }
+            if (distinctSimpleCommandLines.size > 1 || commandLines.isNotEmpty()) {
+                throw MailCommandParseException(
+                    MailCommandDecisionCode.InvalidCommand,
+                    mailCommandText(context, R.string.message_mail_only_one_command)
+                )
+            }
+            return@runCatching parseSimpleCommandLine(distinctSimpleCommandLines.single(), context)
+        }
+
         if (commandLines.size > 1) {
             throw MailCommandParseException(
                 MailCommandDecisionCode.InvalidCommand,
@@ -238,6 +282,62 @@ object MailCommandParser {
     private val signaturePattern = Regex("(?i)^sha256=[0-9a-f]{64}$")
 
     private const val COMMAND_PREFIX = "#paysage"
+    private const val SIMPLE_COMMAND_PREFIX = "/paysage"
+
+    private fun parseSimpleCommandLine(line: String, context: Context?): ParsedMailCommand {
+        val tokens = line.substring(SIMPLE_COMMAND_PREFIX.length).trim()
+            .split(Regex("\\s+"))
+            .filter { it.isNotBlank() }
+        if (tokens.isEmpty()) {
+            throw MailCommandParseException(
+                MailCommandDecisionCode.InvalidCommand,
+                mailCommandText(context, R.string.message_mail_command_line_invalid)
+            )
+        }
+        val normalized = tokens.map { it.lowercase(Locale.ROOT) }
+        val parsed = when {
+            normalized.size == 1 && normalized[0] in setOf("shareswitch", "sw") ->
+                MailCommandAction.ToggleForwarding to null
+            normalized.size == 1 && normalized[0] in setOf("status", "sta") ->
+                MailCommandAction.DeviceStatus to null
+            normalized.size == 1 && normalized[0] in setOf("network", "net") ->
+                MailCommandAction.NetworkSpeed to null
+            else -> throw MailCommandParseException(
+                MailCommandDecisionCode.InvalidCommand,
+                mailCommandText(context, R.string.message_mail_unknown_command)
+            )
+        }
+        return ParsedMailCommand(
+            action = parsed.first,
+            key = null,
+            signature = null,
+            expiresRaw = "",
+            expiresAtEpochMillis = Long.MAX_VALUE,
+            nonce = "",
+            argument = parsed.second,
+            requiresAuthenticator = false
+        )
+    }
+
+    private fun isSimpleCommandLine(line: String): Boolean =
+        line.equals(SIMPLE_COMMAND_PREFIX, ignoreCase = true) ||
+            (
+                line.length > SIMPLE_COMMAND_PREFIX.length &&
+                    line.regionMatches(
+                        thisOffset = 0,
+                        other = SIMPLE_COMMAND_PREFIX,
+                        otherOffset = 0,
+                        length = SIMPLE_COMMAND_PREFIX.length,
+                        ignoreCase = true
+                    ) &&
+                    line[SIMPLE_COMMAND_PREFIX.length].isWhitespace()
+                )
+
+    private fun normalizeSimpleCommandLine(line: String): String =
+        line.trim()
+            .split(Regex("\\s+"))
+            .joinToString(" ")
+            .lowercase(Locale.ROOT)
 
     private fun isCommandLine(line: String): Boolean =
         line.equals(COMMAND_PREFIX, ignoreCase = true) ||
@@ -290,12 +390,20 @@ object MailCommandSecurityPolicy {
             return deny(context, MailCommandDecisionCode.SenderDisabled, R.string.message_mail_sender_disabled)
         }
 
-        if (trusted.secret.isBlank()) {
+        if (trusted.secret.isBlank() && command?.requiresAuthenticator != false) {
             return deny(context, MailCommandDecisionCode.InvalidAuthenticator, R.string.message_mail_sender_missing_secret)
         }
 
         val parsedCommand = command
             ?: return deny(context, MailCommandDecisionCode.NoCommand, R.string.message_mail_no_paysage_command)
+
+        if (!parsedCommand.requiresAuthenticator) {
+            return MailCommandDecision(
+                allowed = true,
+                code = MailCommandDecisionCode.Allowed,
+                message = mailCommandText(context, R.string.message_mail_security_passed)
+            )
+        }
 
         if (parsedCommand.action !in trusted.allowedActions) {
             return deny(context, MailCommandDecisionCode.ActionNotAllowed, R.string.message_mail_action_not_allowed)

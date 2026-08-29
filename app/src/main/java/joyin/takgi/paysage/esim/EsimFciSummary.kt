@@ -34,7 +34,10 @@ data class EsimFciSummary(
 }
 
 object EsimFciAnalyzer {
-    fun summarize(selectResponseData: ByteArray): EsimFciSummary? {
+    fun summarize(
+        selectResponseData: ByteArray,
+        expectedAid: ByteArray = EsimApdu.ISD_R_AID
+    ): EsimFciSummary? {
         if (selectResponseData.isEmpty()) return null
         val tlvs = runCatching { BerTlvParser.parseAll(selectResponseData) }.getOrNull()
             ?: return null
@@ -45,7 +48,7 @@ object EsimFciAnalyzer {
             allTags = flattened.map { it.tagHex }.distinct(),
             hasFciTemplate = tlvs.any { it.tagHex == TAG_FCI_TEMPLATE },
             hasProprietaryTemplate = flattened.any { it.tagHex == TAG_PROPRIETARY_TEMPLATE },
-            dedicatedFileNameMatchesIsdR = dedicatedFileName?.value?.contentEquals(EsimApdu.ISD_R_AID),
+            dedicatedFileNameMatchesIsdR = dedicatedFileName?.value?.contentEquals(expectedAid),
             redactedTreeLines = EsimSgp22RedactedTlvTreeFormatter.format(
                 nodes = tlvs,
                 maxNodes = MAX_FCI_TREE_NODES,

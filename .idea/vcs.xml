@@ -2,5 +2,9 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/external/lpac-jni/src/main/jni/cjson/cjson" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/external/lpac-jni/src/main/jni/lpac" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/临时目录/openeuicc/libs/lpac-jni/src/main/jni/cjson/cjson" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/临时目录/openeuicc/libs/lpac-jni/src/main/jni/lpac" vcs="Git" />
   </component>
 </project>

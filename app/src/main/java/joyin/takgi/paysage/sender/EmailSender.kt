@@ -29,58 +29,77 @@ class EmailSender(
 
     suspend fun send(from: String, content: String, timestamp: Long): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
-            require(smtpHost.isNotBlank()) { "SMTP host is required." }
-            require(username.isNotBlank()) { "SMTP username is required." }
-            require(credential.isNotBlank()) { "SMTP credential is required." }
-            require(toEmail.isNotBlank()) { "Recipient email is required." }
-
-            val props = Properties().apply {
-                put("mail.smtp.host", smtpHost)
-                put("mail.smtp.port", smtpPort.toString())
-                put("mail.smtp.auth", "true")
-                put("mail.smtp.connectiontimeout", CONNECTION_TIMEOUT_MS.toString())
-                put("mail.smtp.timeout", READ_TIMEOUT_MS.toString())
-                put("mail.smtp.writetimeout", WRITE_TIMEOUT_MS.toString())
-                put("mail.smtp.ssl.protocols", "TLSv1.2 TLSv1.3")
-                if (smtpPort == SSL_SMTP_PORT) {
-                    put("mail.smtp.ssl.enable", "true")
-                } else {
-                    put("mail.smtp.starttls.enable", "true")
-                }
-                if (authType == SmtpAuthType.XOAUTH2) {
-                    put("mail.smtp.auth.mechanisms", "XOAUTH2")
-                    put("mail.smtp.sasl.enable", "true")
-                    put("mail.smtp.sasl.mechanisms", "XOAUTH2")
-                    put("mail.smtp.auth.login.disable", "true")
-                    put("mail.smtp.auth.plain.disable", "true")
-                }
-            }
-
-            val session = Session.getInstance(props, object : Authenticator() {
-                override fun getPasswordAuthentication() = PasswordAuthentication(username, credential)
-            })
             val plainBody = buildPlainBody(from, content, timestamp)
             val encryptedPayload = encryptionKeyBase64
                 .takeIf { it.isNotBlank() }
                 ?.let { EmailPayloadEncryption.encrypt(plainBody, it) }
 
-            val message = MimeMessage(session).apply {
-                setFrom(InternetAddress(username))
-                setRecipients(Message.RecipientType.TO, InternetAddress.parse(toEmail))
+            sendMessage(
                 subject = if (encryptedPayload == null) {
                     appContext?.getString(R.string.format_sms_email_subject, from)
                         ?: "[SMS] From $from"
                 } else {
-                    setHeader("X-Paysage-Encryption", encryptedPayload.version)
                     appContext?.getString(R.string.format_sms_encrypted_email_subject)
                         ?: "[Paysage] Encrypted SMS"
-                }
-                setText(encryptedPayload?.let(::buildEncryptedBody) ?: plainBody)
-            }
-
-            Transport.send(message)
+                },
+                body = encryptedPayload?.let(::buildEncryptedBody) ?: plainBody,
+                headers = encryptedPayload?.let { mapOf("X-Paysage-Encryption" to it.version) }.orEmpty()
+            )
         }
     }
+
+    suspend fun sendPlain(subject: String, body: String): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            sendMessage(subject = subject, body = body)
+        }
+    }
+
+    private fun sendMessage(
+        subject: String,
+        body: String,
+        headers: Map<String, String> = emptyMap()
+    ) {
+        require(smtpHost.isNotBlank()) { "SMTP host is required." }
+        require(username.isNotBlank()) { "SMTP username is required." }
+        require(credential.isNotBlank()) { "SMTP credential is required." }
+        require(toEmail.isNotBlank()) { "Recipient email is required." }
+
+        val session = Session.getInstance(smtpProperties(), object : Authenticator() {
+            override fun getPasswordAuthentication() = PasswordAuthentication(username, credential)
+        })
+        val message = MimeMessage(session).apply {
+            setFrom(InternetAddress(username))
+            setRecipients(Message.RecipientType.TO, InternetAddress.parse(toEmail))
+            this.subject = subject
+            headers.forEach { (name, value) -> setHeader(name, value) }
+            setText(body)
+        }
+
+        Transport.send(message)
+    }
+
+    private fun smtpProperties(): Properties =
+        Properties().apply {
+            put("mail.smtp.host", smtpHost)
+            put("mail.smtp.port", smtpPort.toString())
+            put("mail.smtp.auth", "true")
+            put("mail.smtp.connectiontimeout", CONNECTION_TIMEOUT_MS.toString())
+            put("mail.smtp.timeout", READ_TIMEOUT_MS.toString())
+            put("mail.smtp.writetimeout", WRITE_TIMEOUT_MS.toString())
+            put("mail.smtp.ssl.protocols", "TLSv1.2 TLSv1.3")
+            if (smtpPort == SSL_SMTP_PORT) {
+                put("mail.smtp.ssl.enable", "true")
+            } else {
+                put("mail.smtp.starttls.enable", "true")
+            }
+            if (authType == SmtpAuthType.XOAUTH2) {
+                put("mail.smtp.auth.mechanisms", "XOAUTH2")
+                put("mail.smtp.sasl.enable", "true")
+                put("mail.smtp.sasl.mechanisms", "XOAUTH2")
+                put("mail.smtp.auth.login.disable", "true")
+                put("mail.smtp.auth.plain.disable", "true")
+            }
+        }
 
     private fun buildPlainBody(from: String, content: String, timestamp: Long): String =
         appContext?.getString(

@@ -28,14 +28,15 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import joyin.takgi.paysage.ui.screens.AccountDetailScreen
 import joyin.takgi.paysage.ui.screens.AccountsScreen
+import joyin.takgi.paysage.ui.screens.BatteryAlertSettingsScreen
 import joyin.takgi.paysage.ui.screens.ColorSchemeScreen
-import joyin.takgi.paysage.ui.screens.EuiccSettingsScreen
-import joyin.takgi.paysage.ui.screens.EsimScreen
+import joyin.takgi.paysage.ui.screens.DeveloperSettingsScreen
 import joyin.takgi.paysage.ui.screens.FilterScreen
 import joyin.takgi.paysage.ui.screens.ForwardingSettingsScreen
 import joyin.takgi.paysage.ui.screens.HomeScreen
 import joyin.takgi.paysage.ui.screens.LogScreen
 import joyin.takgi.paysage.ui.screens.MailInboxScreen
+import joyin.takgi.paysage.ui.screens.PermissionManagementScreen
 import joyin.takgi.paysage.ui.screens.SettingsScreen
 import joyin.takgi.paysage.ui.navigation.PaysageTab
 import joyin.takgi.paysage.ui.components.M3eScaffoldBackground
@@ -46,11 +47,7 @@ import joyin.takgi.paysage.ui.theme.LanguageSettingsStore
 import joyin.takgi.paysage.ui.theme.PaysageTheme
 import joyin.takgi.paysage.ui.theme.resolveDarkTheme
 import joyin.takgi.paysage.ui.theme.withPaysageLocale
-import joyin.takgi.paysage.reliability.SmsReliabilityManager
-import joyin.takgi.paysage.mail.MailInboxAccountStore
-import joyin.takgi.paysage.mail.MailInboxReliabilityManager
-import joyin.takgi.paysage.mail.MailInboxRealtimeSettingsStore
-import joyin.takgi.paysage.mail.MailInboxRealtimeServiceController
+import joyin.takgi.paysage.reliability.PaysageBackgroundGuard
 import kotlinx.coroutines.runBlocking
 
 class MainActivity : ComponentActivity() {
@@ -68,9 +65,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         requestPermissions()
-        SmsReliabilityManager.ensureScheduled(this)
-        MailInboxReliabilityManager.ensureScheduled(this)
-        restoreMailInboxRealtimeMode()
+        PaysageBackgroundGuard.ensure(this)
 
         setContent {
             val appearanceStore = remember { AppearanceSettingsStore(this@MainActivity) }
@@ -119,16 +114,14 @@ class MainActivity : ComponentActivity() {
                                         selectedTab = selectedTab,
                                         onTabSelected = { selectedTab = it }
                                     )
-                                    PaysageTab.Esim -> EsimScreen(
-                                        selectedTab = selectedTab,
-                                        onTabSelected = { selectedTab = it }
-                                    )
                                     PaysageTab.Settings -> SettingsScreen(
                                         selectedTab = selectedTab,
                                         onTabSelected = { selectedTab = it },
                                         onForwardingSettingsClick = { navController.navigate("forwardingSettings") },
-                                        onEuiccSettingsClick = { navController.navigate("euiccSettings") },
+                                        onPermissionManagementClick = { navController.navigate("permissionManagement") },
+                                        onDeveloperSettingsClick = { navController.navigate("developerSettings") },
                                         onColorSchemeClick = { navController.navigate("colorScheme") },
+                                        onBatteryAlertSettingsClick = { navController.navigate("batteryAlertSettings") },
                                         appearanceSettings = appearanceSettings,
                                         onAppearanceSettingsChange = { nextSettings ->
                                             appearanceSettings = nextSettings
@@ -164,8 +157,13 @@ class MainActivity : ComponentActivity() {
                                     onMailInboxClick = { navController.navigate("mailInbox") }
                                 )
                             }
-                            composable("euiccSettings") {
-                                EuiccSettingsScreen(
+                            composable("permissionManagement") {
+                                PermissionManagementScreen(
+                                    onBackClick = { navController.popBackStack() }
+                                )
+                            }
+                            composable("developerSettings") {
+                                DeveloperSettingsScreen(
                                     onBackClick = { navController.popBackStack() }
                                 )
                             }
@@ -176,6 +174,11 @@ class MainActivity : ComponentActivity() {
                                         appearanceSettings = nextSettings
                                         appearanceStore.write(nextSettings)
                                     },
+                                    onBackClick = { navController.popBackStack() }
+                                )
+                            }
+                            composable("batteryAlertSettings") {
+                                BatteryAlertSettingsScreen(
                                     onBackClick = { navController.popBackStack() }
                                 )
                             }
@@ -197,7 +200,9 @@ class MainActivity : ComponentActivity() {
     private fun requestPermissions() {
         val permissions = mutableListOf(
             Manifest.permission.READ_SMS,
-            Manifest.permission.RECEIVE_SMS
+            Manifest.permission.RECEIVE_SMS,
+            Manifest.permission.READ_PHONE_STATE,
+            Manifest.permission.READ_CALL_LOG
         )
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -213,9 +218,4 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun restoreMailInboxRealtimeMode() {
-        val account = MailInboxAccountStore(this).read()
-        val realtimeSettings = MailInboxRealtimeSettingsStore(this).read()
-        MailInboxRealtimeServiceController.reconcile(this, account, realtimeSettings)
-    }
 }

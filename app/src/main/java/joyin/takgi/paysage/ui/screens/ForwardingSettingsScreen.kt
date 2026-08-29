@@ -16,13 +16,20 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import joyin.takgi.paysage.R
+import joyin.takgi.paysage.reliability.SmsForwardingControlStore
 import joyin.takgi.paysage.ui.components.M3ePanel
 import joyin.takgi.paysage.ui.components.M3eSettingsNavigationItem
 import joyin.takgi.paysage.ui.components.M3eSettingsSection
+import joyin.takgi.paysage.ui.components.M3eSettingsSwitchRow
 import joyin.takgi.paysage.ui.components.M3eTopBar
 
 @Composable
@@ -31,6 +38,10 @@ fun ForwardingSettingsScreen(
     onAccountsClick: () -> Unit,
     onMailInboxClick: () -> Unit
 ) {
+    val context = LocalContext.current
+    val controlStore = remember { SmsForwardingControlStore(context) }
+    var forwardingEnabled by remember { mutableStateOf(!controlStore.isPaused()) }
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
@@ -56,6 +67,19 @@ fun ForwardingSettingsScreen(
         ) {
             item {
                 M3eSettingsSection(title = stringResource(R.string.section_forwarding_settings)) {
+                    M3eSettingsSwitchRow(
+                        title = stringResource(R.string.label_forwarding_enabled),
+                        summary = if (forwardingEnabled) {
+                            stringResource(R.string.summary_forwarding_enabled)
+                        } else {
+                            stringResource(R.string.summary_forwarding_disabled)
+                        },
+                        checked = forwardingEnabled,
+                        onCheckedChange = { enabled ->
+                            forwardingEnabled = enabled
+                            controlStore.setPaused(!enabled)
+                        }
+                    )
                     M3eSettingsNavigationItem(
                         icon = Icons.Default.Settings,
                         title = stringResource(R.string.action_manage_forwarding_accounts),

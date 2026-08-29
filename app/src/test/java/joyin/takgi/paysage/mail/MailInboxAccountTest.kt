@@ -66,4 +66,23 @@ class MailInboxAccountTest {
 
         assertEquals("owner@example.com", MailAddressNormalizer.normalize(from))
     }
+
+    @Test
+    fun convertsHtmlBreaksToCommandLines() {
+        val text = MailBodyTextExtractor.htmlToText(
+            """
+            <html><body>
+            #paysage status<br>
+            key: secret-123<br>
+            expires: 2026-06-13T00:10:00Z<br>
+            nonce: n1
+            </body></html>
+            """.trimIndent()
+        )
+        val command = MailCommandParser.parse(text).getOrThrow()
+
+        assertEquals(MailCommandAction.Status, command.action)
+        assertEquals("secret-123", command.key)
+        assertEquals("n1", command.nonce)
+    }
 }

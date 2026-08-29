@@ -91,6 +91,72 @@ class MailCommandSecurityTest {
     }
 
     @Test
+    fun parsesSimpleCommandFromSubjectWhenBodyHasNoCommand() {
+        val command = MailCommandParser.parseMessage(
+            subject = "/paysage sw",
+            body = "Sent from my phone"
+        ).getOrThrow()
+
+        assertEquals(MailCommandAction.ToggleForwarding, command.action)
+        assertFalse(command.requiresAuthenticator)
+    }
+
+    @Test
+    fun prefersBodyCommandBeforeSubjectCommand() {
+        val command = MailCommandParser.parseMessage(
+            subject = "/paysage sw",
+            body = "/paysage esim -list"
+        ).getOrThrow()
+
+        assertEquals(MailCommandAction.EsimList, command.action)
+    }
+
+    @Test
+    fun parsesSimpleEsimSwitchArgument() {
+        val command = parse("/paysage esim -sw 12")
+
+        assertEquals(MailCommandAction.EsimSwitch, command.action)
+        assertEquals("12", command.argument)
+        assertFalse(command.requiresAuthenticator)
+    }
+
+    @Test
+    fun rejectsBareSwWithoutPaysagePrefix() {
+        val result = MailCommandParser.parse("sw")
+        val error = result.exceptionOrNull() as MailCommandParseException
+
+        assertEquals(MailCommandDecisionCode.NoCommand, error.code)
+    }
+
+    @Test
+    fun deduplicatesIdenticalSimpleCommandsFromAlternativeBodies() {
+        val command = MailCommandParser.parse(
+            """
+            /paysage sw
+            /paysage   sw
+            """.trimIndent()
+        ).getOrThrow()
+
+        assertEquals(MailCommandAction.ToggleForwarding, command.action)
+    }
+
+    @Test
+    fun rejectsMixedSimpleAndAdvancedCommandsInOneMessage() {
+        val result = MailCommandParser.parse(
+            """
+            /paysage sw
+            #paysage status
+            key: secret-123
+            expires: $future
+            nonce: n1
+            """.trimIndent()
+        )
+        val error = result.exceptionOrNull() as MailCommandParseException
+
+        assertEquals(MailCommandDecisionCode.InvalidCommand, error.code)
+    }
+
+    @Test
     fun rejectsCommandLineWithExtraTokens() {
         val result = MailCommandParser.parse(
             """

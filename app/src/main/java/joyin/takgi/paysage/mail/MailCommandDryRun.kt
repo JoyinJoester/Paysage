@@ -52,16 +52,6 @@ object MailCommandDryRun {
             )
         }
 
-        if (trusted.secret.isBlank()) {
-            return MailCommandDryRunResult(
-                allowed = false,
-                code = MailCommandDecisionCode.InvalidAuthenticator,
-                message = text(context, R.string.message_mail_sender_missing_secret),
-                action = null,
-                normalizedSender = normalizedSender
-            )
-        }
-
         val commandResult = MailCommandParser.parse(body, context)
         val command = commandResult.getOrNull()
         val parseError = commandResult.exceptionOrNull() as? MailCommandParseException
@@ -70,6 +60,16 @@ object MailCommandDryRun {
                 allowed = false,
                 code = parseError.code,
                 message = parseError.message,
+                action = null,
+                normalizedSender = normalizedSender
+            )
+        }
+
+        if (trusted.secret.isBlank() && command?.requiresAuthenticator != false) {
+            return MailCommandDryRunResult(
+                allowed = false,
+                code = MailCommandDecisionCode.InvalidAuthenticator,
+                message = text(context, R.string.message_mail_sender_missing_secret),
                 action = null,
                 normalizedSender = normalizedSender
             )

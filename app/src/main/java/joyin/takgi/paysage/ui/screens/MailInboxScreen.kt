@@ -86,7 +86,10 @@ private enum class MailInboxFlow {
     Overview,
     AccountSettings,
     SetupWizard,
-    TrustedSender
+    TrustedSender,
+    TrustedSenders,
+    TestTools,
+    Records
 }
 
 @Composable
@@ -195,6 +198,9 @@ fun MailInboxScreen(onBackClick: () -> Unit) {
                     MailInboxFlow.AccountSettings -> stringResource(R.string.title_inbox_settings)
                     MailInboxFlow.SetupWizard -> stringResource(R.string.title_mail_command_wizard)
                     MailInboxFlow.TrustedSender -> stringResource(R.string.title_authorized_mailbox)
+                    MailInboxFlow.TrustedSenders -> stringResource(R.string.title_trusted_sender_management)
+                    MailInboxFlow.TestTools -> stringResource(R.string.title_command_test_tools)
+                    MailInboxFlow.Records -> stringResource(R.string.title_recent_records)
                 },
                 navigationIcon = {
                     IconButton(
@@ -259,82 +265,19 @@ fun MailInboxScreen(onBackClick: () -> Unit) {
                         }
 
                         item {
-                            MailInboxRealtimeCard(
+                            MailInboxQuickActionsCard(
                                 account = account,
-                                settings = realtimeSettings,
-                                onSettingsChange = ::updateRealtimeSettings
+                                trustedCount = trustedSenders.size,
+                                recentCount = records.size,
+                                onOpenAccount = { currentFlow = MailInboxFlow.AccountSettings },
+                                onOpenTrustedSenders = { currentFlow = MailInboxFlow.TrustedSenders },
+                                onOpenTestTools = { currentFlow = MailInboxFlow.TestTools },
+                                onOpenRecords = { currentFlow = MailInboxFlow.Records }
                             )
                         }
 
-                        if (account.isConfigured) {
-                            item {
-                                TrustedSenderSectionHeader(
-                                    hasSenders = trustedSenders.isNotEmpty(),
-                                    onAddSender = { currentFlow = MailInboxFlow.TrustedSender }
-                                )
-                            }
-
-                            if (trustedSenders.isNotEmpty()) {
-                                items(trustedSenders, key = { it.id }) { sender ->
-                                    TrustedSenderRow(
-                                        sender = sender,
-                                        isBusy = sender.id in busyTrustedSenderIds,
-                                        onEnabledChange = { enabled ->
-                                            runTrustedSenderOperation(sender, context.getString(R.string.message_sender_update_failed)) {
-                                                repository.setSenderEnabled(sender, enabled)
-                                                val status = if (enabled) context.getString(R.string.suffix_enabled) else context.getString(R.string.suffix_disabled)
-                                                statusMessage = "${displayMailAddress(sender.email)} $status"
-                                            }
-                                        },
-                                        onRotateSecret = {
-                                            runTrustedSenderOperation(sender, context.getString(R.string.message_secret_rotate_failed)) {
-                                                latestSecret = repository.rotateSenderSecret(sender)
-                                                statusMessage = displayMailAddress(sender.email) + context.getString(R.string.suffix_secret_rotated)
-                                            }
-                                        },
-                                        onDelete = {
-                                            runTrustedSenderOperation(sender, context.getString(R.string.message_sender_delete_failed)) {
-                                                repository.deleteTrustedSender(sender)
-                                                latestSecret = ""
-                                                statusMessage = context.getString(R.string.message_sender_deleted)
-                                            }
-                                        }
-                                    )
-                                }
-                            }
-                        }
-
-                        if (trustedSenders.isNotEmpty()) {
-                            item {
-                                MailInboxSmokeAssistantCard(
-                                    account = account,
-                                    runtimeStatus = runtimeStatus,
-                                    realtimeSettings = realtimeSettings,
-                                    trustedSenders = trustedSenders,
-                                    dryRunSender = dryRunSender,
-                                    onDryRunSenderChange = {
-                                        dryRunSender = it
-                                        dryRunMessage = ""
-                                    },
-                                    dryRunBody = dryRunBody,
-                                    onDryRunBodyChange = {
-                                        dryRunBody = it
-                                        dryRunMessage = ""
-                                    },
-                                    dryRunResult = dryRunResult,
-                                    dryRunMessage = dryRunMessage,
-                                    isDryRunning = isDryRunning,
-                                    onDryRun = ::runDryRun,
-                                    onCopy = { text, message ->
-                                        clipboardManager.setText(AnnotatedString(text))
-                                        statusMessage = message
-                                    }
-                                )
-                            }
-
-                            item {
-                                RecentMailCommandRecords(records = records)
-                            }
+                        item {
+                            RecentMailCommandRecords(records = records.take(5))
                         }
                     }
                 }
@@ -411,6 +354,81 @@ fun MailInboxScreen(onBackClick: () -> Unit) {
                             currentFlow = MailInboxFlow.Overview
                         }
                     )
+                }
+
+                MailInboxFlow.TrustedSenders -> {
+                    TrustedSendersPage(
+                        modifier = Modifier.padding(padding),
+                        account = account,
+                        trustedSenders = trustedSenders,
+                        busyTrustedSenderIds = busyTrustedSenderIds,
+                        onAddSender = { currentFlow = MailInboxFlow.TrustedSender },
+                        onEnabledChange = { sender, enabled ->
+                            runTrustedSenderOperation(sender, context.getString(R.string.message_sender_update_failed)) {
+                                repository.setSenderEnabled(sender, enabled)
+                                val status = if (enabled) context.getString(R.string.suffix_enabled) else context.getString(R.string.suffix_disabled)
+                                statusMessage = "${displayMailAddress(sender.email)} $status"
+                            }
+                        },
+                        onRotateSecret = { sender ->
+                            runTrustedSenderOperation(sender, context.getString(R.string.message_secret_rotate_failed)) {
+                                latestSecret = repository.rotateSenderSecret(sender)
+                                statusMessage = displayMailAddress(sender.email) + context.getString(R.string.suffix_secret_rotated)
+                                currentFlow = MailInboxFlow.Overview
+                            }
+                        },
+                        onDelete = { sender ->
+                            runTrustedSenderOperation(sender, context.getString(R.string.message_sender_delete_failed)) {
+                                repository.deleteTrustedSender(sender)
+                                latestSecret = ""
+                                statusMessage = context.getString(R.string.message_sender_deleted)
+                            }
+                        }
+                    )
+                }
+
+                MailInboxFlow.TestTools -> {
+                    MailInboxTestToolsPage(
+                        modifier = Modifier.padding(padding),
+                        account = account,
+                        runtimeStatus = runtimeStatus,
+                        realtimeSettings = realtimeSettings,
+                        onRealtimeSettingsChange = ::updateRealtimeSettings,
+                        trustedSenders = trustedSenders,
+                        dryRunSender = dryRunSender,
+                        onDryRunSenderChange = {
+                            dryRunSender = it
+                            dryRunMessage = ""
+                        },
+                        dryRunBody = dryRunBody,
+                        onDryRunBodyChange = {
+                            dryRunBody = it
+                            dryRunMessage = ""
+                        },
+                        dryRunResult = dryRunResult,
+                        dryRunMessage = dryRunMessage,
+                        isDryRunning = isDryRunning,
+                        onDryRun = ::runDryRun,
+                        onCopy = { text, message ->
+                            clipboardManager.setText(AnnotatedString(text))
+                            statusMessage = message
+                        }
+                    )
+                }
+
+                MailInboxFlow.Records -> {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(padding)
+                            .padding(horizontal = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        contentPadding = PaddingValues(vertical = 16.dp)
+                    ) {
+                        item {
+                            RecentMailCommandRecords(records = records)
+                        }
+                    }
                 }
             }
         }
@@ -635,6 +653,213 @@ private fun MailInboxRealtimeCard(
 }
 
 @Composable
+private fun MailInboxQuickActionsCard(
+    account: MailInboxAccountConfig,
+    trustedCount: Int,
+    recentCount: Int,
+    onOpenAccount: () -> Unit,
+    onOpenTrustedSenders: () -> Unit,
+    onOpenTestTools: () -> Unit,
+    onOpenRecords: () -> Unit
+) {
+    M3ePanel(modifier = Modifier.fillMaxWidth()) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(stringResource(R.string.title_mail_command_next_steps), style = MaterialTheme.typography.titleLarge)
+            Text(
+                text = stringResource(R.string.detail_mail_command_next_steps),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            MailInboxActionRow(
+                icon = Icons.Default.Settings,
+                title = stringResource(R.string.title_inbox_settings),
+                subtitle = if (account.isConfigured) {
+                    displayMailAddress(account.username)
+                } else {
+                    stringResource(R.string.detail_configure_imap_first)
+                },
+                onClick = onOpenAccount
+            )
+            MailInboxActionRow(
+                icon = Icons.Default.Email,
+                title = stringResource(R.string.title_trusted_sender_management),
+                subtitle = if (trustedCount > 0) {
+                    "$trustedCount ${stringResource(R.string.unit_items)}"
+                } else {
+                    stringResource(R.string.detail_add_first_sender)
+                },
+                onClick = onOpenTrustedSenders,
+                enabled = account.isConfigured
+            )
+            MailInboxActionRow(
+                icon = Icons.Default.CheckCircle,
+                title = stringResource(R.string.title_command_test_tools),
+                subtitle = stringResource(R.string.detail_command_test_tools),
+                onClick = onOpenTestTools,
+                enabled = account.isConfigured && trustedCount > 0
+            )
+            MailInboxActionRow(
+                icon = Icons.Default.Refresh,
+                title = stringResource(R.string.title_recent_records),
+                subtitle = if (recentCount > 0) {
+                    "$recentCount ${stringResource(R.string.unit_items)}"
+                } else {
+                    stringResource(R.string.message_no_records)
+                },
+                onClick = onOpenRecords
+            )
+        }
+    }
+}
+
+@Composable
+private fun MailInboxActionRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+    enabled: Boolean = true
+) {
+    FilledTonalButton(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        enabled = enabled
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
+        Spacer(modifier = Modifier.width(8.dp))
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+            horizontalAlignment = Alignment.Start
+        ) {
+            Text(title, style = MaterialTheme.typography.labelLarge)
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSecondaryContainer
+            )
+        }
+    }
+}
+
+@Composable
+private fun TrustedSendersPage(
+    modifier: Modifier = Modifier,
+    account: MailInboxAccountConfig,
+    trustedSenders: List<MailTrustedSenderEntity>,
+    busyTrustedSenderIds: Set<Int>,
+    onAddSender: () -> Unit,
+    onEnabledChange: (MailTrustedSenderEntity, Boolean) -> Unit,
+    onRotateSecret: (MailTrustedSenderEntity) -> Unit,
+    onDelete: (MailTrustedSenderEntity) -> Unit
+) {
+    LazyColumn(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(vertical = 16.dp)
+    ) {
+        item {
+            TrustedSenderSectionHeader(
+                hasSenders = trustedSenders.isNotEmpty(),
+                onAddSender = onAddSender
+            )
+        }
+        if (!account.isConfigured) {
+            item {
+                M3ePanel(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        stringResource(R.string.message_config_inbox_first),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+        } else if (trustedSenders.isEmpty()) {
+            item {
+                M3ePanel(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        stringResource(R.string.detail_add_first_sender),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+        } else {
+            items(trustedSenders, key = { it.id }) { sender ->
+                TrustedSenderRow(
+                    sender = sender,
+                    isBusy = sender.id in busyTrustedSenderIds,
+                    onEnabledChange = { enabled -> onEnabledChange(sender, enabled) },
+                    onRotateSecret = { onRotateSecret(sender) },
+                    onDelete = { onDelete(sender) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MailInboxTestToolsPage(
+    modifier: Modifier = Modifier,
+    account: MailInboxAccountConfig,
+    runtimeStatus: MailInboxRuntimeStatus,
+    realtimeSettings: MailInboxRealtimeSettings,
+    onRealtimeSettingsChange: (MailInboxRealtimeSettings) -> Unit,
+    trustedSenders: List<MailTrustedSenderEntity>,
+    dryRunSender: String,
+    onDryRunSenderChange: (String) -> Unit,
+    dryRunBody: String,
+    onDryRunBodyChange: (String) -> Unit,
+    dryRunResult: MailCommandDryRunResult?,
+    dryRunMessage: String,
+    isDryRunning: Boolean,
+    onDryRun: () -> Unit,
+    onCopy: (String, String) -> Unit
+) {
+    LazyColumn(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(vertical = 16.dp)
+    ) {
+        item {
+            MailInboxRealtimeCard(
+                account = account,
+                settings = realtimeSettings,
+                onSettingsChange = onRealtimeSettingsChange
+            )
+        }
+        item {
+            if (trustedSenders.isEmpty()) {
+                M3ePanel(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        stringResource(R.string.detail_add_first_sender),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            } else {
+                MailInboxSmokeAssistantCard(
+                    account = account,
+                    runtimeStatus = runtimeStatus,
+                    realtimeSettings = realtimeSettings,
+                    trustedSenders = trustedSenders,
+                    dryRunSender = dryRunSender,
+                    onDryRunSenderChange = onDryRunSenderChange,
+                    dryRunBody = dryRunBody,
+                    onDryRunBodyChange = onDryRunBodyChange,
+                    dryRunResult = dryRunResult,
+                    dryRunMessage = dryRunMessage,
+                    isDryRunning = isDryRunning,
+                    onDryRun = onDryRun,
+                    onCopy = onCopy
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun MailInboxSetupWizardPage(
     modifier: Modifier = Modifier,
     initial: MailInboxAccountConfig,
@@ -652,8 +877,8 @@ private fun MailInboxSetupWizardPage(
     var password by remember { mutableStateOf(initial.password) }
     var useSsl by remember { mutableStateOf(initial.useSsl) }
     var senderEmail by remember { mutableStateOf("") }
-    var secret by remember { mutableStateOf(MailInboxRepository.generateSecret()) }
-    var allowedActions by remember { mutableStateOf(setOf(MailCommandAction.Status)) }
+    var secret by remember { mutableStateOf("") }
+    var allowedActions by remember { mutableStateOf(MailCommandAction.entries.toSet()) }
     var message by remember { mutableStateOf("") }
     var isBusy by remember { mutableStateOf(false) }
     val stepTitles = listOf(
@@ -1011,12 +1236,6 @@ private fun WizardSecurityStep(
     allowedActions: Set<MailCommandAction>
 ) {
     val context = LocalContext.current
-    val exampleCommand = remember {
-        MailCommandTemplate.keyCommand(
-            action = MailCommandAction.Status,
-            key = MailCommandTemplate.KEY_PLACEHOLDER
-        )
-    }
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         InfoLine(context.getString(R.string.label_trusted_senders), senderEmail.takeIf { it.isNotBlank() }?.let(::displayMailAddress) ?: context.getString(R.string.value_not_filled))
@@ -1026,11 +1245,11 @@ private fun WizardSecurityStep(
         )
         InfoLine(context.getString(R.string.label_secret_length), "${secret.length} ${context.getString(R.string.unit_characters)}")
         Text(
-            text = context.getString(R.string.hint_command_security_format),
+            text = context.getString(R.string.hint_simple_mail_commands),
             style = MaterialTheme.typography.bodySmall
         )
         Text(
-            text = exampleCommand,
+            text = context.getString(R.string.example_simple_mail_commands),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -1051,7 +1270,7 @@ private fun canAdvanceWizardStep(
             port.toIntOrNull() in 1..65535 &&
             username.isNotBlank() &&
             password.isNotBlank()
-        2, 4 -> senderEmail.isNotBlank() && secret.length >= 12
+        2, 4 -> senderEmail.isNotBlank() && (secret.isBlank() || secret.length >= 12)
         else -> true
     }
 
@@ -1534,9 +1753,9 @@ private fun TrustedSenderPage(
     val scope = rememberCoroutineScope()
     val clipboardManager = LocalClipboardManager.current
     var email by remember { mutableStateOf("") }
-    var secret by remember { mutableStateOf(MailInboxRepository.generateSecret()) }
+    var secret by remember { mutableStateOf("") }
     var enabled by remember { mutableStateOf(true) }
-    var allowedActions by remember { mutableStateOf(setOf(MailCommandAction.Status)) }
+    var allowedActions by remember { mutableStateOf(MailCommandAction.entries.toSet()) }
     var isSaving by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf("") }
 
@@ -1559,6 +1778,7 @@ private fun TrustedSenderPage(
             value = secret,
             onValueChange = { secret = it },
             label = { Text(stringResource(R.string.label_command_secret)) },
+            supportingText = { Text(stringResource(R.string.hint_command_secret_optional_simple)) },
             modifier = Modifier.fillMaxWidth()
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1581,6 +1801,7 @@ private fun TrustedSenderPage(
             }
         }
         Text(stringResource(R.string.label_allowed_commands), style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.hint_simple_mail_commands), style = MaterialTheme.typography.bodySmall)
         MailCommandAction.entries.forEach { action ->
             ActionCheckboxRow(
                 action = action,

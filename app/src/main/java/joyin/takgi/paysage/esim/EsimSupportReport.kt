@@ -1,6 +1,8 @@
 package joyin.takgi.paysage.esim
 
 import android.content.Context
+import android.os.Build
+import joyin.takgi.paysage.BuildConfig
 import joyin.takgi.paysage.R
 
 data class EsimSupportReportInput(
@@ -12,7 +14,20 @@ data class EsimSupportReportInput(
     val omapiReaders: List<EsimOmapiReaderSummary>?,
     val usbIsdRResults: Map<String, EsimIsdRProbeResult> = emptyMap(),
     val omapiIsdRResults: Map<String, EsimIsdRProbeResult> = emptyMap(),
-    val sgp22IsdRReady: Boolean = false
+    val aidListSummary: EsimIsdrAidListSummary = EsimUserSettings().isdrAidListSummary(),
+    val es10xMss: Int = ESIM_DEFAULT_ES10X_MSS,
+    val showNonOperationalProfiles: Boolean = false,
+    val autoHandleExternalNotifications: Boolean = true,
+    val removeHandledExternalNotifications: Boolean = false,
+    val sgp22IsdRReady: Boolean = false,
+    val externalProfileCount: Int = 0,
+    val externalSourceCount: Int = 0,
+    val externalNotificationCount: Int = 0,
+    val externalNotificationSourceCount: Int = 0,
+    val externalProfileReadSummary: String? = null,
+    val externalVendorSummaries: List<String> = emptyList(),
+    val persistentDiagnostics: String = "",
+    val paysageAraMSha1: String = ""
 )
 
 object EsimSupportReportBuilder {
@@ -27,6 +42,19 @@ object EsimSupportReportBuilder {
         val lines = mutableListOf<String>()
         lines += text.get(R.string.report_esim_support_title)
         lines += privacyLine(context)
+        lines += ""
+        lines += "App build"
+        lines += "Full version: ${BuildConfig.FULL_VERSION_NAME}"
+        lines += "Build detail: ${BuildConfig.BUILD_DETAIL_TAG}"
+        lines += "Build time: ${BuildConfig.BUILD_TIME}"
+        lines += "Git SHA: ${BuildConfig.GIT_SHA}"
+        lines += "APK arch: ${BuildConfig.APK_ARCH}"
+        lines += "Device ABIs: ${Build.SUPPORTED_ABIS.joinToString(",")}"
+        lines += "Android: ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
+        lines += "Device: ${Build.MANUFACTURER} ${Build.MODEL}"
+        lines += "Paysage ARA-M SHA-1: ${input.paysageAraMSha1.ifBlank { text.get(R.string.value_not_disclosed) }}"
+        lines += "EasyEUICC ARA-M SHA-1: $EASY_EUICC_ARA_M_SHA1"
+        lines += "SIM-slot note: removable eUICC OMAPI access depends on card-side ARA-M authorization for the current signing certificate."
         lines += ""
         lines += text.get(R.string.report_section_device_capabilities)
         lines += "eUICC: ${input.supportState.hasEuiccFeature.label(text)}"
@@ -74,16 +102,56 @@ object EsimSupportReportBuilder {
             omapiReaders == null -> lines += text.get(R.string.report_value_not_checked)
             omapiReaders.isEmpty() -> lines += text.get(R.string.report_value_no_omapi_reader)
             else -> omapiReaders.forEach { reader ->
-                lines += "${reader.name} / ${if (reader.isUicc) "UICC" else text.get(R.string.report_value_non_uicc)} / ${if (reader.isSecureElementPresent) text.get(R.string.report_value_secure_element_present) else text.get(R.string.report_value_secure_element_unavailable)}"
+                lines += "${reader.displayLabel} / ${if (reader.isUicc) "UICC" else text.get(R.string.report_value_non_uicc)} / ${if (reader.isSecureElementPresent) text.get(R.string.report_value_secure_element_present) else text.get(R.string.report_value_secure_element_unavailable)}"
             }
         }
         lines += ""
         lines += text.get(R.string.report_section_isdr_diagnostics)
+        lines += "AID list: ${input.aidListSummary.effectiveAidLabels.joinToString()} / invalid=${input.aidListSummary.invalidLines.size} / defaults=${input.aidListSummary.usingDefaults.label(text)}"
+        lines += "ES10x MSS: ${input.es10xMss.coerceIn(1, 255)}"
         lines += isdRDiagnosticLines(input, text)
+        lines += ""
+        lines += text.get(R.string.title_external_profiles)
+        lines += "Profiles: ${input.externalProfileCount}"
+        lines += "Sources: ${input.externalSourceCount}"
+        lines += "Profile filter: ${if (input.showNonOperationalProfiles) "Unfiltered" else "EasyEUICC default"}"
+        lines += "Auto-handle carrier notifications: ${input.autoHandleExternalNotifications.label(text)}"
+        lines += "Remove handled carrier notifications: ${input.removeHandledExternalNotifications.label(text)}"
+        lines += "Pending carrier notifications: ${input.externalNotificationCount}"
+        lines += "Notification sources: ${input.externalNotificationSourceCount}"
+        lines += "Last read: ${input.externalProfileReadSummary?.takeIf { it.isNotBlank() } ?: text.get(R.string.report_value_not_checked)}"
+        lines += ""
+        lines += "External eUICC vendors"
+        lines += externalVendorLines(input, text)
+        lines += ""
+        lines += "Persistent eUICC diagnostics"
+        lines += persistentDiagnosticLines(input.persistentDiagnostics, text)
         lines += ""
         lines += text.get(R.string.report_section_sgp22_gate)
         lines += sgp22GateLines(input.sgp22IsdRReady, text)
         return lines.joinToString(separator = "\n")
+    }
+
+    private fun externalVendorLines(input: EsimSupportReportInput, text: ReportText): List<String> {
+        val vendors = input.externalVendorSummaries.distinct()
+        return if (vendors.isEmpty()) {
+            listOf(text.get(R.string.report_value_not_checked))
+        } else {
+            vendors
+        }
+    }
+
+    private fun persistentDiagnosticLines(raw: String, text: ReportText): List<String> {
+        val lines = EsimDiagnosticSanitizer.sanitize(raw).lineSequence()
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .toList()
+            .takeLast(MAX_PERSISTENT_DIAGNOSTIC_LINES)
+        return if (lines.isEmpty()) {
+            listOf(text.get(R.string.report_value_not_checked))
+        } else {
+            lines
+        }
     }
 
     fun privacyLine(context: Context?): String =
@@ -107,8 +175,8 @@ object EsimSupportReportBuilder {
             omapiReaders == null -> emptyList()
             omapiReaders.isEmpty() -> emptyList()
             else -> omapiReaders.mapNotNull { reader ->
-                input.omapiIsdRResults[reader.name]?.let { result ->
-                    "OMAPI ${reader.name}: ${result.reportLine(text)}"
+                input.omapiIsdRResults[reader.diagnosticKey]?.let { result ->
+                    "OMAPI ${reader.displayLabel}: ${result.reportLine(text)}"
                 }
             }
         }
@@ -241,4 +309,6 @@ object EsimSupportReportBuilder {
 
     private const val MAX_HISTORY_LINES = 5
     private const val MAX_DIAGNOSTIC_STEP_LINES = 4
+    private const val MAX_PERSISTENT_DIAGNOSTIC_LINES = 60
+    private const val EASY_EUICC_ARA_M_SHA1 = "2A2FA878BC7C3354C2CF82935A5945A3EDAE4AFA"
 }

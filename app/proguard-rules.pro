@@ -31,3 +31,18 @@
 -dontwarn javax.activation.**
 -dontwarn com.sun.mail.**
 -dontwarn com.sun.activation.**
+
+# Tink (pulled by AndroidX Security Crypto) references compile-time annotation
+# types that are not needed at runtime. R8 can safely ignore these.
+-dontwarn com.google.errorprone.annotations.CanIgnoreReturnValue
+-dontwarn com.google.errorprone.annotations.CheckReturnValue
+-dontwarn com.google.errorprone.annotations.Immutable
+-dontwarn com.google.errorprone.annotations.RestrictedApi
+-dontwarn javax.annotation.Nullable
+-dontwarn javax.annotation.concurrent.GuardedBy
+
+# lpac-jni calls these Kotlin/Java APIs from native code by exact class,
+# method, field, and constructor names. R8 must not rename or strip them.
+-keep,includedescriptorclasses class net.typeblog.lpac_jni.** { *; }
+-keep,includedescriptorclasses class * implements net.typeblog.lpac_jni.ApduInterface { *; }
+-keep,includedescriptorclasses class * implements net.typeblog.lpac_jni.HttpInterface { *; }

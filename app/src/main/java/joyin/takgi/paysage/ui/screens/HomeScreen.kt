@@ -77,8 +77,9 @@ import joyin.takgi.paysage.mail.MailInboxRecoveryAdvisor
 import joyin.takgi.paysage.mail.MailInboxRealtimeSettingsStore
 import joyin.takgi.paysage.mail.MailInboxRepository
 import joyin.takgi.paysage.mail.MailInboxRuntimeStatus
+import joyin.takgi.paysage.reliability.PaysageBackgroundGuard
+import joyin.takgi.paysage.reliability.SmsForwardingControlStore
 import joyin.takgi.paysage.reliability.SmsReliabilityManager
-import joyin.takgi.paysage.service.SmsKeepAliveService
 import joyin.takgi.paysage.ui.components.M3eDropdownMenu
 import joyin.takgi.paysage.ui.components.M3ePanel
 import joyin.takgi.paysage.ui.components.M3eStatusPill
@@ -103,6 +104,7 @@ fun HomeScreen(
     val logDao = remember { db.forwardLogDao() }
     val accountDao = remember { db.forwardAccountDao() }
     val pendingDao = remember { db.pendingForwardDao() }
+    val forwardingControlStore = remember { SmsForwardingControlStore(context) }
     val trustedMailSenders by mailInboxRepository.observeTrustedSenders().collectAsState(initial = emptyList())
     val todayCount by logDao.getTodayCount().collectAsState(initial = 0)
     val recentLogs by logDao.getRecent(50).collectAsState(initial = emptyList())
@@ -114,6 +116,7 @@ fun HomeScreen(
     var mailAccount by remember { mutableStateOf(mailInboxRepository.readAccount()) }
     var mailRuntimeStatus by remember { mutableStateOf(mailInboxRepository.readRuntimeStatus()) }
     var mailRealtimeEnabled by remember { mutableStateOf(mailInboxRealtimeSettingsStore.read().enabled) }
+    var forwardingPaused by remember { mutableStateOf(forwardingControlStore.isPaused()) }
     var showMenu by remember { mutableStateOf(false) }
     var showRuntimeDetails by remember { mutableStateOf(false) }
     var isAccessibilityEnabled by remember {
@@ -145,6 +148,7 @@ fun HomeScreen(
         mailAccount = mailInboxRepository.readAccount()
         mailRuntimeStatus = mailInboxRepository.readRuntimeStatus()
         mailRealtimeEnabled = mailInboxRealtimeSettingsStore.read().enabled
+        forwardingPaused = forwardingControlStore.isPaused()
     }
 
     DisposableEffect(context) {
@@ -186,7 +190,8 @@ fun HomeScreen(
         isKeepAliveRunning,
         hasReceiveSmsPermission,
         hasReadSmsPermission,
-        canPostNotifications
+        canPostNotifications,
+        forwardingPaused
     ) {
         SmsHealthUiState.from(
             context = context,
@@ -199,7 +204,8 @@ fun HomeScreen(
             keepAliveRunning = isKeepAliveRunning,
             hasReceiveSmsPermission = hasReceiveSmsPermission,
             hasReadSmsPermission = hasReadSmsPermission,
-            canPostNotifications = canPostNotifications
+            canPostNotifications = canPostNotifications,
+            forwardingPaused = forwardingPaused
         )
     }
 
@@ -222,11 +228,7 @@ fun HomeScreen(
     }
 
     fun startStableMode(message: String) {
-        SmsReliabilityManager.ensureScheduled(context)
-        context.startKeepAliveService()
-        if (pendingCount > 0) {
-            SmsReliabilityManager.enqueueImmediateRetry(context)
-        }
+        PaysageBackgroundGuard.ensureAggressive(context)
         refreshRuntimeState()
         statusMessage = message
     }
@@ -249,7 +251,7 @@ fun HomeScreen(
     }
 
     fun openAccessibilitySettings() {
-        context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        context.openAccessibilitySettings()
     }
 
     Scaffold(
@@ -258,41 +260,43 @@ fun HomeScreen(
             M3eTopBar(
                 title = stringResource(R.string.screen_home_title),
                 actions = {
-                    IconButton(onClick = { showMenu = true }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.action_more_forward_options))
-                    }
-                    M3eDropdownMenu(
-                        expanded = showMenu,
-                        onDismissRequest = { showMenu = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.action_runtime_details)) },
-                            onClick = {
-                                showMenu = false
-                                showRuntimeDetails = true
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.action_filter_rules)) },
-                            onClick = {
-                                showMenu = false
-                                onFilterClick()
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.action_forward_logs)) },
-                            onClick = {
-                                showMenu = false
-                                onLogsClick()
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.action_settings)) },
-                            onClick = {
-                                showMenu = false
-                                onSettingsClick()
-                            }
-                        )
+                    Box {
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.action_more_forward_options))
+                        }
+                        M3eDropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.action_runtime_details)) },
+                                onClick = {
+                                    showMenu = false
+                                    showRuntimeDetails = true
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.action_filter_rules)) },
+                                onClick = {
+                                    showMenu = false
+                                    onFilterClick()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.action_forward_logs)) },
+                                onClick = {
+                                    showMenu = false
+                                    onLogsClick()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.action_settings)) },
+                                onClick = {
+                                    showMenu = false
+                                    onSettingsClick()
+                                }
+                            )
+                        }
                     }
                 }
             )
@@ -362,9 +366,7 @@ fun HomeScreen(
                 HomeNavigationRow(
                     icon = Icons.AutoMirrored.Filled.List,
                     title = stringResource(R.string.action_filter_rules),
-                    subtitle = stringResource(R.string.filter_type_whitelist) + " / " +
-                        stringResource(R.string.filter_type_blacklist) + " / " +
-                        stringResource(R.string.filter_type_keyword),
+                    subtitle = stringResource(R.string.summary_filter_rules),
                     onClick = onFilterClick
                 )
             }
@@ -922,7 +924,8 @@ private data class SmsHealthUiState(
             keepAliveRunning: Boolean,
             hasReceiveSmsPermission: Boolean,
             hasReadSmsPermission: Boolean,
-            canPostNotifications: Boolean
+            canPostNotifications: Boolean,
+            forwardingPaused: Boolean
         ): SmsHealthUiState {
             val considered = logs.filterNot { it.filtered }
             val successCount = considered.count { it.emailSuccess || it.telegramSuccess }
@@ -931,6 +934,23 @@ private data class SmsHealthUiState(
                 context.getString(R.string.value_none)
             } else {
                 "${successCount * 100 / considered.size}%"
+            }
+            if (forwardingPaused) {
+                return SmsHealthUiState(
+                    statusLabel = context.getString(R.string.status_forwarding_disabled),
+                    statusTitle = context.getString(R.string.title_forwarding_disabled),
+                    statusMessage = context.getString(R.string.detail_forwarding_disabled),
+                    successRate = successRate,
+                    pendingCount = pendingCount,
+                    activeAccountCount = activeAccountCount,
+                    lastSuccessText = lastSuccessTimestamp?.let(DateFormatter::format) ?: context.getString(R.string.value_none),
+                    broadcastState = context.getString(R.string.status_paused),
+                    observerState = context.getString(R.string.status_paused),
+                    accessibilityState = context.getString(R.string.status_paused),
+                    keepAliveState = context.getString(R.string.status_paused),
+                    notificationState = context.getString(R.string.status_paused),
+                    issues = emptyList()
+                )
             }
             val issues = buildList {
                 if (!hasReceiveSmsPermission) {
@@ -1073,15 +1093,6 @@ private fun PendingForwardMessage.nextRetryText(context: Context): String =
         context.getString(R.string.format_next_retry, DateFormatter.format(nextAttemptAt))
     }
 
-private fun Context.startKeepAliveService() {
-    val intent = Intent(this, SmsKeepAliveService::class.java)
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        startForegroundService(intent)
-    } else {
-        startService(intent)
-    }
-}
-
 private fun Context.isSmsAccessibilityServiceEnabled(): Boolean {
     val accessibilityEnabled = Settings.Secure.getInt(
         contentResolver,
@@ -1120,10 +1131,31 @@ private fun Context.canPostNotifications(): Boolean =
         hasPermission(Manifest.permission.POST_NOTIFICATIONS)
 
 private fun Context.openAppDetails() {
-    startActivity(
+    startActivitySafely(
         Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-            .setData(Uri.parse("package:$packageName"))
+            .setData(Uri.parse("package:$packageName")),
+        Intent(Settings.ACTION_APPLICATION_SETTINGS),
+        Intent(Settings.ACTION_SETTINGS)
     )
+}
+
+private fun Context.openAccessibilitySettings() {
+    startActivitySafely(
+        Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS),
+        Intent(Settings.ACTION_SETTINGS)
+    )
+}
+
+private fun Context.startActivitySafely(vararg intents: Intent): Boolean {
+    val activity = findActivity()
+    val launchContext: Context = activity ?: this
+    return intents.any { intent ->
+        val launchIntent = Intent(intent)
+        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching {
+            launchContext.startActivity(launchIntent)
+        }.isSuccess
+    }
 }
 
 private tailrec fun Context.findActivity(): Activity? = when (this) {

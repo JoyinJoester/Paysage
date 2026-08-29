@@ -161,6 +161,12 @@ class MailInboxIdleService : Service() {
         listening = false
     }
 
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        MailInboxReliabilityManager.ensureScheduled(this)
+        MailInboxReliabilityManager.enqueueImmediateCheck(this)
+        super.onTaskRemoved(rootIntent)
+    }
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     companion object {
@@ -204,10 +210,12 @@ object MailInboxRealtimeServiceController {
         account: MailInboxAccountConfig,
         settings: MailInboxRealtimeSettings
     ): Boolean {
+        MailInboxReliabilityManager.ensureScheduled(context)
         if (!shouldRun(account, settings)) {
             MailInboxIdleService.stop(context)
             return false
         }
+        MailInboxReliabilityManager.enqueueImmediateCheck(context)
         return runCatching {
             MailInboxIdleService.start(context)
         }.isSuccess

@@ -1,4 +1,4 @@
-*.iml
+*电池.iml
 .gradle
 /local.properties
 /.idea/caches
@@ -16,3 +16,5 @@ local.properties
 
 # 临时目录不提交
 临时目录/
+# Gradle 子模块构建产物
+build/

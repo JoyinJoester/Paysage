@@ -1,26 +1,38 @@
 package joyin.takgi.paysage.service
 
+import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.provider.CallLog
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.IBinder
 import android.provider.Telephony
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import joyin.takgi.paysage.R
+import joyin.takgi.paysage.reliability.CallLogObserver
 import joyin.takgi.paysage.reliability.SmsContentObserver
 import joyin.takgi.paysage.reliability.SmsReliabilityManager
+import joyin.takgi.paysage.telegram.TelegramCommandRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 class SmsKeepAliveService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var observerThread: HandlerThread? = null
-    private var observer: SmsContentObserver? = null
+    private var smsObserver: SmsContentObserver? = null
+    private var callLogObserver: CallLogObserver? = null
+    private var telegramCommandJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -37,18 +49,33 @@ class SmsKeepAliveService : Service() {
         )
         SmsReliabilityManager.ensureScheduled(this)
         registerSmsObserver()
+        registerCallLogObserver()
+        startTelegramCommandLoop()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         SmsReliabilityManager.ensureScheduled(this)
+        registerSmsObserver()
+        registerCallLogObserver()
+        startTelegramCommandLoop()
         return START_STICKY
     }
 
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        SmsReliabilityManager.ensureScheduled(this)
+        SmsReliabilityManager.enqueueImmediateRetry(this)
+        super.onTaskRemoved(rootIntent)
+    }
+
     override fun onDestroy() {
-        observer?.let { contentResolver.unregisterContentObserver(it) }
-        observer = null
+        smsObserver?.let { contentResolver.unregisterContentObserver(it) }
+        callLogObserver?.let { contentResolver.unregisterContentObserver(it) }
+        smsObserver = null
+        callLogObserver = null
         observerThread?.quitSafely()
         observerThread = null
+        telegramCommandJob?.cancel()
+        telegramCommandJob = null
         scope.cancel()
         super.onDestroy()
     }
@@ -56,11 +83,10 @@ class SmsKeepAliveService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun registerSmsObserver() {
-        if (observer != null) return
-        val thread = HandlerThread("PaysageSmsObserver").also { it.start() }
+        if (smsObserver != null) return
         val contentObserver = SmsContentObserver(
             context = applicationContext,
-            handler = Handler(thread.looper),
+            handler = observerHandler(),
             scope = scope
         )
         contentResolver.registerContentObserver(
@@ -68,8 +94,56 @@ class SmsKeepAliveService : Service() {
             true,
             contentObserver
         )
-        observerThread = thread
-        observer = contentObserver
+        smsObserver = contentObserver
+    }
+
+    private fun registerCallLogObserver() {
+        if (callLogObserver != null) return
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALL_LOG) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+        val contentObserver = CallLogObserver(
+            context = applicationContext,
+            handler = observerHandler(),
+            scope = scope
+        )
+        contentResolver.registerContentObserver(
+            CallLog.Calls.CONTENT_URI,
+            true,
+            contentObserver
+        )
+        callLogObserver = contentObserver
+    }
+
+    private fun observerHandler(): Handler {
+        val thread = observerThread ?: HandlerThread("PaysageObservers").also {
+            it.start()
+            observerThread = it
+        }
+        return Handler(thread.looper)
+    }
+
+    private fun startTelegramCommandLoop() {
+        if (telegramCommandJob?.isActive == true) return
+        telegramCommandJob = scope.launch {
+            val repository = TelegramCommandRepository(applicationContext)
+            while (isActive) {
+                val result = runCatching {
+                    repository.refreshCommands(
+                        pollTimeoutSeconds = TELEGRAM_COMMAND_LONG_POLL_SECONDS
+                    )
+                }.getOrNull()
+                delay(
+                    if (result?.hasAccounts == true) {
+                        TELEGRAM_COMMAND_ACTIVE_POLL_DELAY_MS
+                    } else {
+                        TELEGRAM_COMMAND_IDLE_POLL_DELAY_MS
+                    }
+                )
+            }
+        }
     }
 
     private fun createNotificationChannel() {
@@ -86,5 +160,8 @@ class SmsKeepAliveService : Service() {
     companion object {
         private const val CHANNEL_ID = "sms_keep_alive_channel"
         private const val NOTIFICATION_ID = 2101
+        private const val TELEGRAM_COMMAND_LONG_POLL_SECONDS = 25
+        private const val TELEGRAM_COMMAND_ACTIVE_POLL_DELAY_MS = 1_000L
+        private const val TELEGRAM_COMMAND_IDLE_POLL_DELAY_MS = 60_000L
     }
 }

@@ -81,6 +81,24 @@ object MailInboxAccountValidator {
     }
 }
 
+internal object MailBodyTextExtractor {
+    fun htmlToText(html: String): String =
+        html
+            .replace(Regex("(?i)<\\s*br\\s*/?>"), "\n")
+            .replace(Regex("(?i)</\\s*(p|div|li|tr|h[1-6]|blockquote|section|article|table)\\s*>"), "\n")
+            .replace(Regex("<[^>]+>"), " ")
+            .replace("&nbsp;", " ")
+            .replace("&amp;", "&")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&quot;", "\"")
+            .replace("&#39;", "'")
+            .replace(Regex("[ \\t\\x0B\\f\\r]+"), " ")
+            .replace(Regex(" *\\n *"), "\n")
+            .replace(Regex("\\n{3,}"), "\n\n")
+            .trim()
+}
+
 class MailInboxAccountStore(context: Context) {
     private val appContext = context.applicationContext
     private val preferences by lazy {
@@ -277,12 +295,22 @@ class MailImapClient(
                 part.content?.toString().orEmpty().take(maxChars)
             }
             part.isMimeType("text/html") -> {
-                part.content?.toString()
-                    .orEmpty()
-                    .replace(Regex("<[^>]+>"), " ")
-                    .replace(Regex("\\s+"), " ")
-                    .trim()
-                    .take(maxChars)
+                MailBodyTextExtractor.htmlToText(part.content?.toString().orEmpty()).take(maxChars)
+            }
+            part.isMimeType("multipart/alternative") -> {
+                val multipart = part.content as? Multipart ?: return ""
+                var htmlFallback = ""
+                var otherFallback = ""
+                for (index in 0 until multipart.count) {
+                    val bodyPart = multipart.getBodyPart(index)
+                    val text = extractText(bodyPart, maxChars).takeIf { it.isNotBlank() } ?: continue
+                    when {
+                        bodyPart.isMimeType("text/plain") -> return text.take(maxChars)
+                        bodyPart.isMimeType("text/html") && htmlFallback.isBlank() -> htmlFallback = text
+                        otherFallback.isBlank() -> otherFallback = text
+                    }
+                }
+                htmlFallback.ifBlank { otherFallback }.take(maxChars)
             }
             part.isMimeType("multipart/*") -> {
                 val multipart = part.content as? Multipart ?: return ""

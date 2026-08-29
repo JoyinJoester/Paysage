@@ -1,3 +1,9 @@
+import com.android.build.gradle.internal.api.BaseVariantOutputImpl
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.TimeZone
+import java.util.regex.Pattern
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -11,14 +17,92 @@ android {
         version = release(36)
     }
 
+    val appVersionCode = 1
+    val baseVersionName = "1.0.0"
+    val apkPrefix = "Paysage"
+    val packagedAbiTags = listOf("arm64-v8a", "armeabi-v7a")
+
+    fun normalizeTwoDigits(raw: Any?): String {
+        val digits = raw?.toString()
+            ?.trim()
+            ?.filter { it.isDigit() }
+            .orEmpty()
+        val padded = digits.ifBlank { "01" }.padStart(2, '0')
+        return padded.takeLast(2)
+    }
+
+    fun sanitizeTag(raw: Any?, fallback: String): String {
+        val value = raw?.toString()?.trim().orEmpty()
+        if (value.isBlank()) return fallback
+        val cleaned = value.replace(Regex("[^0-9A-Za-z._+-]"), "_")
+        return cleaned.ifBlank { fallback }
+    }
+
+    fun escapeForBuildConfig(raw: String): String =
+        raw.replace("\\", "\\\\").replace("\"", "\\\"")
+
+    fun gitSha(): String =
+        runCatching {
+            providers.exec {
+                commandLine("git", "rev-parse", "--short", "HEAD")
+            }.standardOutput.asText.get().trim().ifBlank { "unknown" }
+        }.getOrDefault("unknown")
+
+    fun findNextDailySeqForVersion(versionNameTag: String, dateTag: String, versionTag: String): Int {
+        val versionPrefix = "$versionNameTag-$dateTag$versionTag"
+        val apkNamePattern = Pattern.compile(
+            "^$apkPrefix-Android-.+-${Pattern.quote(versionPrefix)}-(\\d{2})\\.[aA][pP][kK]$"
+        )
+        val outputsDir = layout.buildDirectory.dir("outputs/apk").get().asFile
+        if (!outputsDir.exists()) return 1
+
+        val maxSeq = outputsDir
+            .walkTopDown()
+            .filter { it.isFile }
+            .mapNotNull { file ->
+                val matcher = apkNamePattern.matcher(file.name)
+                if (matcher.matches()) matcher.group(1).toIntOrNull() else null
+            }
+            .maxOrNull()
+            ?: 0
+        return maxSeq + 1
+    }
+
+    val buildTimeZone = TimeZone.getTimeZone("Asia/Shanghai")
+    val buildDateTag = SimpleDateFormat("yyMMdd").apply { timeZone = buildTimeZone }.format(Date())
+    val buildTime = SimpleDateFormat("yyyy-MM-dd HH:mm:ss z").apply { timeZone = buildTimeZone }.format(Date())
+    val buildVersionTag = normalizeTwoDigits(project.findProperty("apkVersionTag") ?: appVersionCode)
+    val versionNameTag = sanitizeTag(project.findProperty("apkVersionName") ?: baseVersionName, "0.0.0")
+    val buildDailySeq = normalizeTwoDigits(
+        project.findProperty("dailySeq")
+            ?: findNextDailySeqForVersion(versionNameTag, buildDateTag, buildVersionTag)
+    )
+    val buildDetailTag = "$buildDateTag$buildVersionTag-$buildDailySeq"
+    val fullVersionName = "$baseVersionName-$buildDetailTag"
+    val declaredApkArch = sanitizeTag(
+        project.findProperty("apkArch") ?: packagedAbiTags.sorted().joinToString("+"),
+        packagedAbiTags.sorted().joinToString("+")
+    )
+    val currentGitSha = sanitizeTag(gitSha(), "unknown")
+
     defaultConfig {
         applicationId = "joyin.takgi.paysage"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = appVersionCode
+        versionName = baseVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        ndk {
+            abiFilters += packagedAbiTags
+        }
+
+        buildConfigField("String", "BUILD_TIME", "\"${escapeForBuildConfig(buildTime)}\"")
+        buildConfigField("String", "FULL_VERSION_NAME", "\"${escapeForBuildConfig(fullVersionName)}\"")
+        buildConfigField("String", "BUILD_DETAIL_TAG", "\"${escapeForBuildConfig(buildDetailTag)}\"")
+        buildConfigField("String", "APK_ARCH", "\"${escapeForBuildConfig(declaredApkArch)}\"")
+        buildConfigField("String", "GIT_SHA", "\"${escapeForBuildConfig(currentGitSha)}\"")
     }
 
     buildTypes {
@@ -40,6 +124,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     packaging {
         resources {
@@ -48,9 +133,29 @@ android {
             excludes += "META-INF/LICENSE.md"
         }
     }
+
+    applicationVariants.all {
+        outputs.all {
+            val abiTag = filters
+                .firstOrNull { filter ->
+                    val typeText = filter.filterType
+                    typeText.equals("ABI", ignoreCase = true) || typeText.uppercase().endsWith(".ABI")
+                }
+                ?.identifier
+                ?.let { sanitizeTag(it, declaredApkArch) }
+                ?: declaredApkArch
+            val outputVersionName = sanitizeTag(
+                project.findProperty("apkVersionName") ?: versionName ?: baseVersionName,
+                "0.0.0"
+            )
+            (this as BaseVariantOutputImpl).outputFileName =
+                "$apkPrefix-Android-$abiTag-$outputVersionName-${buildDateTag}${buildVersionTag}-$buildDailySeq.APK"
+        }
+    }
 }
 
 dependencies {
+    implementation(project(":lpac-jni"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)

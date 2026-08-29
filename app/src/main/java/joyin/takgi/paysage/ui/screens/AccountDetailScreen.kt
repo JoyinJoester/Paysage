@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
@@ -51,10 +52,15 @@ import joyin.takgi.paysage.data.AppDatabase
 import joyin.takgi.paysage.data.ForwardAccount
 import joyin.takgi.paysage.data.SmtpAuthType
 import joyin.takgi.paysage.data.SmtpProvider
+import joyin.takgi.paysage.mail.MailInboxAccountConfig
+import joyin.takgi.paysage.mail.MailInboxAccountStore
+import joyin.takgi.paysage.reliability.SmsReliabilityManager
 import joyin.takgi.paysage.security.ForwardAccountSecretStore
 import joyin.takgi.paysage.sender.EmailPayloadEncryption
 import joyin.takgi.paysage.sender.EmailSender
 import joyin.takgi.paysage.sender.TelegramSender
+import joyin.takgi.paysage.telegram.TelegramBotSetupProbe
+import joyin.takgi.paysage.telegram.TelegramCommandReliabilityManager
 import joyin.takgi.paysage.ui.components.M3ePanel
 import joyin.takgi.paysage.ui.components.M3eTopBar
 import joyin.takgi.paysage.ui.motion.PaysageAnimatedPage
@@ -93,7 +99,10 @@ fun AccountDetailScreen(accountId: Int?, onBackClick: () -> Unit, onSaved: () ->
     val clipboardManager = LocalClipboardManager.current
     val accountDao = remember { AppDatabase.getDatabase(context).forwardAccountDao() }
     val secretStore = remember { ForwardAccountSecretStore(context) }
+    val mailInboxAccountStore = remember { MailInboxAccountStore(context) }
     val scope = rememberCoroutineScope()
+    val isNewAccount = accountId == null || accountId <= 0
+    val sharedInboxAccount = remember { mailInboxAccountStore.read() }
 
     var name by remember { mutableStateOf("") }
     var type by remember { mutableStateOf(AccountType.EMAIL) }
@@ -118,6 +127,7 @@ fun AccountDetailScreen(accountId: Int?, onBackClick: () -> Unit, onSaved: () ->
     var chatId by remember { mutableStateOf("") }
 
     var isTesting by remember { mutableStateOf(false) }
+    var isResolvingTelegramChat by remember { mutableStateOf(false) }
     var statusMessage by remember { mutableStateOf("") }
     var currentFlow by remember { mutableStateOf(AccountDetailFlow.Basics) }
 
@@ -187,6 +197,18 @@ fun AccountDetailScreen(accountId: Int?, onBackClick: () -> Unit, onSaved: () ->
         if (smtpUsername.isBlank()) smtpUsername = toEmail
     }
 
+    fun applySharedInboxAccount(account: MailInboxAccountConfig) {
+        if (!account.isConfigured) {
+            statusMessage = context.getString(R.string.message_mail_config_incomplete_sentence)
+            return
+        }
+        smtpUsername = account.username
+        smtpCredential = account.password
+        if (toEmail.isBlank()) toEmail = account.username
+        if (name.isBlank()) name = context.getString(R.string.title_shared_mailbox_forward_account)
+        statusMessage = context.getString(R.string.message_shared_mailbox_applied)
+    }
+
     fun normalizedEncryptionKeyOrNull(): String? {
         if (!emailEncryptionEnabled) return ""
         if (encryptionKey.isBlank()) {
@@ -195,18 +217,63 @@ fun AccountDetailScreen(accountId: Int?, onBackClick: () -> Unit, onSaved: () ->
         return EmailPayloadEncryption.normalizeKeyBase64(encryptionKey)
     }
 
+    fun smtpPortOrNull(): Int? =
+        smtpPort.toIntOrNull()?.takeIf { it in 1..65535 }
+
+    fun isEmailDeliveryReady(): Boolean =
+        smtpHost.isNotBlank() &&
+            smtpPortOrNull() != null &&
+            smtpUsername.isNotBlank() &&
+            smtpCredential.isNotBlank() &&
+            toEmail.isNotBlank()
+
+    fun isTelegramDeliveryReady(): Boolean =
+        botToken.isNotBlank() && chatId.isNotBlank()
+
+    fun isCurrentDeliveryReady(): Boolean =
+        when (type) {
+            AccountType.EMAIL -> isEmailDeliveryReady()
+            AccountType.TELEGRAM -> isTelegramDeliveryReady()
+        }
+
+    fun resolveTelegramChatId() {
+        if (botToken.isBlank()) {
+            statusMessage = context.getString(R.string.message_telegram_token_required)
+            return
+        }
+        isResolvingTelegramChat = true
+        scope.launch {
+            val result = TelegramBotSetupProbe(context).fetchLatestChat(botToken)
+            isResolvingTelegramChat = false
+            result.onSuccess { setup ->
+                chatId = setup.chatId
+                if (name.isBlank()) {
+                    name = setup.botName
+                }
+                statusMessage = context.getString(
+                    R.string.format_telegram_chat_resolved,
+                    setup.chatId,
+                    setup.chatTitle
+                )
+            }.onFailure { error ->
+                statusMessage = context.getString(
+                    R.string.format_telegram_chat_resolve_failed,
+                    error.message?.take(180).orEmpty()
+                )
+            }
+        }
+    }
+
     fun saveAccount() {
         scope.launch {
             if (type == AccountType.EMAIL) {
-                if (
-                    smtpHost.isBlank() ||
-                    smtpUsername.isBlank() ||
-                    smtpCredential.isBlank() ||
-                    toEmail.isBlank()
-                ) {
+                if (!isEmailDeliveryReady()) {
                     statusMessage = context.getString(R.string.message_smtp_config_incomplete)
                     return@launch
                 }
+            } else if (!isTelegramDeliveryReady()) {
+                statusMessage = context.getString(R.string.message_telegram_config_incomplete)
+                return@launch
             }
 
             val credentialRef = smtpCredentialRef.ifBlank { secretStore.newCredentialRef() }
@@ -240,14 +307,14 @@ fun AccountDetailScreen(accountId: Int?, onBackClick: () -> Unit, onSaved: () ->
             }
 
             val account = ForwardAccount(
-                id = accountId ?: 0,
+                id = if (isNewAccount) 0 else accountId ?: 0,
                 name = name.ifBlank { context.getString(R.string.title_unnamed_account) },
                 type = type,
                 isEnabled = isEnabled,
                 phoneWhitelist = phoneWhitelist,
                 smtpProvider = smtpProvider,
                 smtpHost = smtpHost.trim(),
-                smtpPort = smtpPort.toIntOrNull() ?: 587,
+                smtpPort = smtpPortOrNull() ?: 587,
                 smtpUsername = smtpUsername.trim(),
                 smtpPassword = "",
                 smtpAuthType = smtpAuthType,
@@ -258,10 +325,15 @@ fun AccountDetailScreen(accountId: Int?, onBackClick: () -> Unit, onSaved: () ->
                 botToken = botToken,
                 chatId = chatId
             )
-            if (accountId == null) {
+            if (isNewAccount) {
                 accountDao.insert(account)
             } else {
                 accountDao.update(account)
+            }
+            if (type == AccountType.TELEGRAM) {
+                TelegramCommandReliabilityManager.ensureScheduled(context)
+                TelegramCommandReliabilityManager.enqueueImmediateCheck(context)
+                SmsReliabilityManager.startKeepAlive(context)
             }
             statusMessage = context.getString(R.string.message_account_saved)
             onSaved()
@@ -269,6 +341,14 @@ fun AccountDetailScreen(accountId: Int?, onBackClick: () -> Unit, onSaved: () ->
     }
 
     fun testSend() {
+        if (!isCurrentDeliveryReady()) {
+            statusMessage = if (type == AccountType.EMAIL) {
+                context.getString(R.string.message_smtp_config_incomplete)
+            } else {
+                context.getString(R.string.message_telegram_config_incomplete)
+            }
+            return
+        }
         isTesting = true
         scope.launch {
             val result = if (type == AccountType.EMAIL) {
@@ -280,7 +360,7 @@ fun AccountDetailScreen(accountId: Int?, onBackClick: () -> Unit, onSaved: () ->
                 }
                 EmailSender(
                     smtpHost,
-                    smtpPort.toIntOrNull() ?: 587,
+                    smtpPortOrNull() ?: 587,
                     smtpUsername,
                     smtpCredential,
                     toEmail,
@@ -301,8 +381,18 @@ fun AccountDetailScreen(accountId: Int?, onBackClick: () -> Unit, onSaved: () ->
                     )
             }
             isTesting = false
+            if (result.isSuccess && type == AccountType.TELEGRAM) {
+                TelegramCommandReliabilityManager.ensureScheduled(context)
+                TelegramCommandReliabilityManager.enqueueImmediateCheck(context)
+                SmsReliabilityManager.startKeepAlive(context)
+            }
             statusMessage = if (result.isSuccess) {
                 context.getString(R.string.message_test_send_success)
+            } else if (!result.exceptionOrNull()?.message.isNullOrBlank()) {
+                context.getString(
+                    R.string.format_test_send_failed_reason,
+                    result.exceptionOrNull()?.message?.take(180).orEmpty()
+                )
             } else {
                 context.getString(R.string.message_test_send_failed)
             }
@@ -385,6 +475,8 @@ fun AccountDetailScreen(accountId: Int?, onBackClick: () -> Unit, onSaved: () ->
                         AccountDetailFlow.Delivery -> {
                             if (type == AccountType.EMAIL) {
                                 EmailDeliveryPanel(
+                                    sharedInboxAccount = sharedInboxAccount,
+                                    onUseSharedInboxAccount = { applySharedInboxAccount(sharedInboxAccount) },
                                     smtpProvider = smtpProvider,
                                     onCustomProvider = { smtpProvider = SmtpProvider.CUSTOM },
                                     onGmailProvider = ::applyGmailPreset,
@@ -406,7 +498,9 @@ fun AccountDetailScreen(accountId: Int?, onBackClick: () -> Unit, onSaved: () ->
                                     botToken = botToken,
                                     onBotTokenChange = { botToken = it },
                                     chatId = chatId,
-                                    onChatIdChange = { chatId = it }
+                                    onChatIdChange = { chatId = it },
+                                    isResolvingChat = isResolvingTelegramChat,
+                                    onResolveChatId = ::resolveTelegramChatId
                                 )
                             }
                         }
@@ -444,7 +538,8 @@ fun AccountDetailScreen(accountId: Int?, onBackClick: () -> Unit, onSaved: () ->
                 canGoBack = currentFlowIndex > 0,
                 isLastStep = currentFlowIndex == flowOrder.lastIndex,
                 isTesting = isTesting,
-                canTest = name.isNotBlank(),
+                canTest = isCurrentDeliveryReady(),
+                showTest = visibleFlow == AccountDetailFlow.Delivery || currentFlowIndex == flowOrder.lastIndex,
                 onPrevious = ::goBackInFlow,
                 onNext = ::goForwardInFlow,
                 onTestSend = ::testSend
@@ -460,6 +555,7 @@ private fun AccountDetailActionPanel(
     isLastStep: Boolean,
     isTesting: Boolean,
     canTest: Boolean,
+    showTest: Boolean,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     onTestSend: () -> Unit
@@ -495,7 +591,7 @@ private fun AccountDetailActionPanel(
                     )
                 }
             }
-            if (isLastStep) {
+            if (showTest) {
                 OutlinedButton(
                     onClick = onTestSend,
                     modifier = Modifier.fillMaxWidth(),
@@ -580,6 +676,8 @@ private fun AccountBasicsPanel(
 
 @Composable
 private fun EmailDeliveryPanel(
+    sharedInboxAccount: MailInboxAccountConfig,
+    onUseSharedInboxAccount: () -> Unit,
     smtpProvider: SmtpProvider,
     onCustomProvider: () -> Unit,
     onGmailProvider: () -> Unit,
@@ -603,6 +701,23 @@ private fun EmailDeliveryPanel(
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
             )
+            if (sharedInboxAccount.isConfigured) {
+                OutlinedButton(
+                    onClick = onUseSharedInboxAccount,
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(horizontal = 10.dp)
+                ) {
+                    Text(stringResource(R.string.action_use_mail_inbox_account))
+                }
+                Text(
+                    text = stringResource(
+                        R.string.summary_use_mail_inbox_account,
+                        sharedInboxAccount.username
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             DirectDeliveryNotice()
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(
@@ -779,7 +894,9 @@ private fun TelegramConfig(
     botToken: String,
     onBotTokenChange: (String) -> Unit,
     chatId: String,
-    onChatIdChange: (String) -> Unit
+    onChatIdChange: (String) -> Unit,
+    isResolvingChat: Boolean,
+    onResolveChatId: () -> Unit
 ) {
     M3ePanel(modifier = Modifier.fillMaxWidth()) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -791,15 +908,36 @@ private fun TelegramConfig(
             OutlinedTextField(
                 value = botToken,
                 onValueChange = onBotTokenChange,
-                label = { Text("Bot Token") },
+                label = { Text(stringResource(R.string.label_telegram_bot_token)) },
                 modifier = Modifier.fillMaxWidth(),
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
             )
+            OutlinedButton(
+                onClick = onResolveChatId,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = botToken.isNotBlank() && !isResolvingChat,
+                contentPadding = PaddingValues(horizontal = 10.dp)
+            ) {
+                Icon(Icons.Default.Search, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    if (isResolvingChat) {
+                        stringResource(R.string.status_resolving_telegram_chat)
+                    } else {
+                        stringResource(R.string.action_resolve_telegram_chat)
+                    }
+                )
+            }
+            Text(
+                text = stringResource(R.string.hint_resolve_telegram_chat),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             OutlinedTextField(
                 value = chatId,
                 onValueChange = onChatIdChange,
-                label = { Text("Chat ID") },
+                label = { Text(stringResource(R.string.label_telegram_chat_id)) },
                 modifier = Modifier.fillMaxWidth()
             )
         }
