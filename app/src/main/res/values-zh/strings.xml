@@ -512,6 +512,12 @@
     <string name="title_edit_account">编辑账号</string>
     <string name="label_account_name">账号名称</string>
     <string name="type_email">邮箱</string>
+    <string name="type_webhook">Webhook</string>
+    <string name="type_bark">Bark</string>
+    <string name="type_serverchan">Server酱</string>
+    <string name="type_dingtalk">钉钉</string>
+    <string name="type_feishu">飞书</string>
+    <string name="type_wecom">企业微信</string>
     <string name="type_telegram">Telegram</string>
     <string name="label_phone_whitelist">号码白名单(逗号分隔,空=全部)</string>
     <string name="title_email_settings">邮箱设置</string>
@@ -1131,6 +1137,17 @@
     <string name="message_all_forward_channels_failed">所有转发通道均未成功，已等待自动重试。</string>
     <string name="format_sms_forward_success">转发成功: %s</string>
     <string name="label_email_channel">邮件</string>
+    <string name="title_webhook_settings">Webhook 设置</string>
+    <string name="label_webhook_url">Webhook 地址</string>
+    <string name="label_webhook_secret">密钥 / Key</string>
+    <string name="hint_webhook_url_optional">留空则使用官方服务器</string>
+    <string name="hint_webhook_secret_bark">Bark 设备 Key,即 https://api.day.app/your_key 中的 your_key</string>
+    <string name="hint_webhook_secret_serverchan">Server酱 SendKey</string>
+    <string name="hint_webhook_secret_dingtalk">钉钉机器人开启加签时必填</string>
+    <string name="hint_webhook_secret_optional">可选,取决于目标服务</string>
+    <string name="message_webhook_config_incomplete">请填写 Webhook 地址或密钥。</string>
+    <string name="prefix_webhook">Webhook: </string>
+    <string name="label_webhook_channel">Webhook</string>
     <string name="separator_list">、</string>
     <string name="format_sms_email_subject">[短信] 来自 %s</string>
     <string name="format_sms_forward_body">发件人：%1$s\n时间：%2$s\n\n内容：\n%3$s</string>

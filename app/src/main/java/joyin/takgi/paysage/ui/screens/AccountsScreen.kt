@@ -109,6 +109,10 @@ fun AccountItem(account: ForwardAccount, accountDao: joyin.takgi.paysage.data.Fo
                     when (account.type) {
                         AccountType.EMAIL -> context.getString(R.string.prefix_email) + account.toEmail
                         AccountType.TELEGRAM -> context.getString(R.string.prefix_telegram) + account.chatId
+                        AccountType.BARK, AccountType.SERVERCHAN ->
+                            context.getString(R.string.prefix_webhook) +
+                                account.webhookUrl.ifBlank { account.webhookSecret }
+                        else -> context.getString(R.string.prefix_webhook) + account.webhookUrl
                     },
                     style = MaterialTheme.typography.bodySmall
                 )

@@ -2,6 +2,8 @@ package joyin.takgi.paysage.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -59,6 +61,8 @@ import joyin.takgi.paysage.security.ForwardAccountSecretStore
 import joyin.takgi.paysage.sender.EmailPayloadEncryption
 import joyin.takgi.paysage.sender.EmailSender
 import joyin.takgi.paysage.sender.TelegramSender
+import joyin.takgi.paysage.sender.WebhookMessage
+import joyin.takgi.paysage.sender.WebhookSender
 import joyin.takgi.paysage.telegram.TelegramBotSetupProbe
 import joyin.takgi.paysage.telegram.TelegramCommandReliabilityManager
 import joyin.takgi.paysage.ui.components.M3ePanel
@@ -126,6 +130,9 @@ fun AccountDetailScreen(accountId: Int?, onBackClick: () -> Unit, onSaved: () ->
     var botToken by remember { mutableStateOf("") }
     var chatId by remember { mutableStateOf("") }
 
+    var webhookUrl by remember { mutableStateOf("") }
+    var webhookSecret by remember { mutableStateOf("") }
+
     var isTesting by remember { mutableStateOf(false) }
     var isResolvingTelegramChat by remember { mutableStateOf(false) }
     var statusMessage by remember { mutableStateOf("") }
@@ -136,10 +143,10 @@ fun AccountDetailScreen(accountId: Int?, onBackClick: () -> Unit, onSaved: () ->
     val visibleFlow = flowOrder[currentFlowIndex]
     val currentStepTitle = when (visibleFlow) {
         AccountDetailFlow.Basics -> stringResource(R.string.title_account_basics)
-        AccountDetailFlow.Delivery -> if (type == AccountType.EMAIL) {
-            stringResource(R.string.title_email_settings)
-        } else {
-            stringResource(R.string.title_telegram_settings)
+        AccountDetailFlow.Delivery -> when {
+            type == AccountType.EMAIL -> stringResource(R.string.title_email_settings)
+            type == AccountType.TELEGRAM -> stringResource(R.string.title_telegram_settings)
+            else -> stringResource(R.string.title_webhook_settings)
         }
         AccountDetailFlow.Security -> stringResource(R.string.title_secure_delivery)
         AccountDetailFlow.Filtering -> stringResource(R.string.title_filtering)
@@ -186,6 +193,8 @@ fun AccountDetailScreen(accountId: Int?, onBackClick: () -> Unit, onSaved: () ->
                 encryptionKey = secretStore.readEncryptionKey(keyRef)
                 botToken = account.botToken
                 chatId = account.chatId
+                webhookUrl = account.webhookUrl
+                webhookSecret = account.webhookSecret
             }
         }
     }
@@ -230,10 +239,15 @@ fun AccountDetailScreen(accountId: Int?, onBackClick: () -> Unit, onSaved: () ->
     fun isTelegramDeliveryReady(): Boolean =
         botToken.isNotBlank() && chatId.isNotBlank()
 
+    fun isWebhookDeliveryReady(): Boolean =
+        WebhookMessage.isReady(type, webhookUrl, webhookSecret)
+
     fun isCurrentDeliveryReady(): Boolean =
-        when (type) {
-            AccountType.EMAIL -> isEmailDeliveryReady()
-            AccountType.TELEGRAM -> isTelegramDeliveryReady()
+        when {
+            type == AccountType.EMAIL -> isEmailDeliveryReady()
+            type == AccountType.TELEGRAM -> isTelegramDeliveryReady()
+            type.isWebhookType -> isWebhookDeliveryReady()
+            else -> false
         }
 
     fun resolveTelegramChatId() {
@@ -271,9 +285,16 @@ fun AccountDetailScreen(accountId: Int?, onBackClick: () -> Unit, onSaved: () ->
                     statusMessage = context.getString(R.string.message_smtp_config_incomplete)
                     return@launch
                 }
-            } else if (!isTelegramDeliveryReady()) {
-                statusMessage = context.getString(R.string.message_telegram_config_incomplete)
-                return@launch
+            } else if (type == AccountType.TELEGRAM) {
+                if (!isTelegramDeliveryReady()) {
+                    statusMessage = context.getString(R.string.message_telegram_config_incomplete)
+                    return@launch
+                }
+            } else if (type.isWebhookType) {
+                if (!isWebhookDeliveryReady()) {
+                    statusMessage = context.getString(R.string.message_webhook_config_incomplete)
+                    return@launch
+                }
             }
 
             val credentialRef = smtpCredentialRef.ifBlank { secretStore.newCredentialRef() }
@@ -323,7 +344,9 @@ fun AccountDetailScreen(accountId: Int?, onBackClick: () -> Unit, onSaved: () ->
                 emailEncryptionEnabled = type == AccountType.EMAIL && emailEncryptionEnabled,
                 emailEncryptionKeyRef = if (type == AccountType.EMAIL && emailEncryptionEnabled) keyRef else "",
                 botToken = botToken,
-                chatId = chatId
+                chatId = chatId,
+                webhookUrl = webhookUrl.trim(),
+                webhookSecret = webhookSecret.trim()
             )
             if (isNewAccount) {
                 accountDao.insert(account)
@@ -342,10 +365,10 @@ fun AccountDetailScreen(accountId: Int?, onBackClick: () -> Unit, onSaved: () ->
 
     fun testSend() {
         if (!isCurrentDeliveryReady()) {
-            statusMessage = if (type == AccountType.EMAIL) {
-                context.getString(R.string.message_smtp_config_incomplete)
-            } else {
-                context.getString(R.string.message_telegram_config_incomplete)
+            statusMessage = when {
+                type == AccountType.EMAIL -> context.getString(R.string.message_smtp_config_incomplete)
+                type == AccountType.TELEGRAM -> context.getString(R.string.message_telegram_config_incomplete)
+                else -> context.getString(R.string.message_webhook_config_incomplete)
             }
             return
         }
@@ -372,8 +395,15 @@ fun AccountDetailScreen(accountId: Int?, onBackClick: () -> Unit, onSaved: () ->
                     context.getString(R.string.message_test_content),
                     System.currentTimeMillis()
                 )
-            } else {
+            } else if (type == AccountType.TELEGRAM) {
                 TelegramSender(botToken, chatId, context)
+                    .send(
+                        context.getString(R.string.prefix_test),
+                        context.getString(R.string.message_test_content),
+                        System.currentTimeMillis()
+                    )
+            } else {
+                WebhookSender(type, webhookUrl, webhookSecret, context)
                     .send(
                         context.getString(R.string.prefix_test),
                         context.getString(R.string.message_test_content),
@@ -473,8 +503,8 @@ fun AccountDetailScreen(accountId: Int?, onBackClick: () -> Unit, onSaved: () ->
                         )
 
                         AccountDetailFlow.Delivery -> {
-                            if (type == AccountType.EMAIL) {
-                                EmailDeliveryPanel(
+                            when {
+                                type == AccountType.EMAIL -> EmailDeliveryPanel(
                                     sharedInboxAccount = sharedInboxAccount,
                                     onUseSharedInboxAccount = { applySharedInboxAccount(sharedInboxAccount) },
                                     smtpProvider = smtpProvider,
@@ -493,14 +523,20 @@ fun AccountDetailScreen(accountId: Int?, onBackClick: () -> Unit, onSaved: () ->
                                     toEmail = toEmail,
                                     onToEmailChange = { toEmail = it }
                                 )
-                            } else {
-                                TelegramConfig(
+                                type == AccountType.TELEGRAM -> TelegramConfig(
                                     botToken = botToken,
                                     onBotTokenChange = { botToken = it },
                                     chatId = chatId,
                                     onChatIdChange = { chatId = it },
                                     isResolvingChat = isResolvingTelegramChat,
                                     onResolveChatId = ::resolveTelegramChatId
+                                )
+                                else -> WebhookDeliveryPanel(
+                                    type = type,
+                                    webhookUrl = webhookUrl,
+                                    onUrlChange = { webhookUrl = it },
+                                    webhookSecret = webhookSecret,
+                                    onSecretChange = { webhookSecret = it }
                                 )
                             }
                         }
@@ -648,19 +684,19 @@ private fun AccountBasicsPanel(
                 label = { Text(stringResource(R.string.label_account_name)) },
                 modifier = Modifier.fillMaxWidth()
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(
-                    selected = type == AccountType.EMAIL,
-                    onClick = { onTypeChange(AccountType.EMAIL) },
-                    label = { Text(stringResource(R.string.type_email)) },
-                    modifier = Modifier.weight(1f)
-                )
-                FilterChip(
-                    selected = type == AccountType.TELEGRAM,
-                    onClick = { onTypeChange(AccountType.TELEGRAM) },
-                    label = { Text(stringResource(R.string.type_telegram)) },
-                    modifier = Modifier.weight(1f)
-                )
+            @OptIn(ExperimentalLayoutApi::class)
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                AccountType.entries.forEach { candidate ->
+                    FilterChip(
+                        selected = type == candidate,
+                        onClick = { onTypeChange(candidate) },
+                        label = { Text(accountTypeLabel(candidate)) },
+                        modifier = Modifier.padding(vertical = 2.dp)
+                    )
+                }
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -885,6 +921,73 @@ private fun EmailSecurityPanel(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun accountTypeLabel(type: AccountType): String = when (type) {
+    AccountType.EMAIL -> stringResource(R.string.type_email)
+    AccountType.TELEGRAM -> stringResource(R.string.type_telegram)
+    AccountType.WEBHOOK -> stringResource(R.string.type_webhook)
+    AccountType.BARK -> stringResource(R.string.type_bark)
+    AccountType.SERVERCHAN -> stringResource(R.string.type_serverchan)
+    AccountType.DINGTALK -> stringResource(R.string.type_dingtalk)
+    AccountType.FEISHU -> stringResource(R.string.type_feishu)
+    AccountType.WECOM -> stringResource(R.string.type_wecom)
+}
+
+@Composable
+private fun WebhookDeliveryPanel(
+    type: AccountType,
+    webhookUrl: String,
+    onUrlChange: (String) -> Unit,
+    webhookSecret: String,
+    onSecretChange: (String) -> Unit
+) {
+    M3ePanel(modifier = Modifier.fillMaxWidth()) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(
+                text = stringResource(R.string.title_webhook_settings),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            OutlinedTextField(
+                value = webhookUrl,
+                onValueChange = onUrlChange,
+                label = { Text(stringResource(R.string.label_webhook_url)) },
+                placeholder = {
+                    if (type == AccountType.BARK || type == AccountType.SERVERCHAN) {
+                        Text(stringResource(R.string.hint_webhook_url_optional))
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri)
+            )
+            OutlinedTextField(
+                value = webhookSecret,
+                onValueChange = onSecretChange,
+                label = { Text(stringResource(R.string.label_webhook_secret)) },
+                supportingText = {
+                    Text(
+                        text = when (type) {
+                            AccountType.BARK -> stringResource(R.string.hint_webhook_secret_bark)
+                            AccountType.SERVERCHAN -> stringResource(R.string.hint_webhook_secret_serverchan)
+                            AccountType.DINGTALK -> stringResource(R.string.hint_webhook_secret_dingtalk)
+                            else -> stringResource(R.string.hint_webhook_secret_optional)
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = type != AccountType.BARK,
+                visualTransformation = if (type == AccountType.BARK || type == AccountType.SERVERCHAN) {
+                    PasswordVisualTransformation()
+                } else {
+                    androidx.compose.ui.text.input.VisualTransformation.None
+                }
+            )
         }
     }
 }

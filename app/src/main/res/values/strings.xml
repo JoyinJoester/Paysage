@@ -351,6 +351,12 @@
     <string name="title_edit_account">Edit Account</string>
     <string name="label_account_name">Account Name</string>
     <string name="type_email">Email</string>
+    <string name="type_webhook">Webhook</string>
+    <string name="type_bark">Bark</string>
+    <string name="type_serverchan">ServerChan</string>
+    <string name="type_dingtalk">DingTalk</string>
+    <string name="type_feishu">Feishu</string>
+    <string name="type_wecom">WeCom</string>
     <string name="type_telegram">Telegram</string>
     <string name="label_phone_whitelist">Phone Whitelist (comma-separated, empty = all)</string>
     <string name="title_email_settings">Email Settings</string>
@@ -1146,6 +1152,17 @@
     <string name="message_all_forward_channels_failed">All forwarding channels failed and are waiting for automatic retry.</string>
     <string name="format_sms_forward_success">Forwarded successfully: %s</string>
     <string name="label_email_channel">Email</string>
+    <string name="title_webhook_settings">Webhook Settings</string>
+    <string name="label_webhook_url">Webhook URL</string>
+    <string name="label_webhook_secret">Secret / Key</string>
+    <string name="hint_webhook_url_optional">Leave blank to use the official server</string>
+    <string name="hint_webhook_secret_bark">Bark device key, e.g. the key part of https://api.day.app/your_key</string>
+    <string name="hint_webhook_secret_serverchan">ServerChan SendKey</string>
+    <string name="hint_webhook_secret_dingtalk">Required only when the DingTalk robot uses signed access</string>
+    <string name="hint_webhook_secret_optional">Optional, depends on the target service</string>
+    <string name="message_webhook_config_incomplete">Fill in the Webhook URL or key.</string>
+    <string name="prefix_webhook">Webhook: </string>
+    <string name="label_webhook_channel">Webhook</string>
     <string name="separator_list">, </string>
     <string name="format_sms_email_subject">[SMS] From %s</string>
     <string name="format_sms_forward_body">Sender: %1$s\nTime: %2$s\n\nContent:\n%3$s</string>

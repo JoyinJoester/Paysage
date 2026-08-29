@@ -11,6 +11,8 @@ import joyin.takgi.paysage.repository.FilterRepository
 import joyin.takgi.paysage.security.ForwardAccountSecretStore
 import joyin.takgi.paysage.sender.EmailSender
 import joyin.takgi.paysage.sender.TelegramSender
+import joyin.takgi.paysage.sender.WebhookMessage
+import joyin.takgi.paysage.sender.WebhookSender
 import kotlinx.coroutines.flow.first
 import kotlin.math.min
 
@@ -152,6 +154,7 @@ class SmsForwarder(context: Context) {
 
         var anyEmailSuccess = false
         var anyTelegramSuccess = false
+        var anyWebhookSuccess = false
 
         matchedAccounts.forEach { account ->
             when (account.type) {
@@ -200,16 +203,29 @@ class SmsForwarder(context: Context) {
                         }
                     }
                 }
+                else -> {
+                    if (WebhookMessage.isReady(account.type, account.webhookUrl, account.webhookSecret)) {
+                        val webhookSender = WebhookSender(
+                            account.type,
+                            account.webhookUrl,
+                            account.webhookSecret,
+                            appContext
+                        )
+                        if (webhookSender.send(request.sender, request.content, request.timestamp).isSuccess) {
+                            anyWebhookSuccess = true
+                        }
+                    }
+                }
             }
         }
 
-        val forwarded = anyEmailSuccess || anyTelegramSuccess
+        val forwarded = anyEmailSuccess || anyTelegramSuccess || anyWebhookSuccess
         if (forwarded) {
             if (writeSuccessLog) {
                 logDao.insert(
                     request.toLog(
                         emailSuccess = anyEmailSuccess,
-                        telegramSuccess = anyTelegramSuccess,
+                        telegramSuccess = anyTelegramSuccess || anyWebhookSuccess,
                         filtered = false
                     )
                 )
@@ -221,7 +237,8 @@ class SmsForwarder(context: Context) {
                 filtered = false,
                 emailSuccess = anyEmailSuccess,
                 telegramSuccess = anyTelegramSuccess,
-                message = buildSuccessMessage(anyEmailSuccess, anyTelegramSuccess)
+                webhookSuccess = anyWebhookSuccess,
+                message = buildSuccessMessage(anyEmailSuccess, anyTelegramSuccess, anyWebhookSuccess)
             )
         }
 
@@ -304,10 +321,15 @@ class SmsForwarder(context: Context) {
             filtered = filtered
         )
 
-    private fun buildSuccessMessage(emailSuccess: Boolean, telegramSuccess: Boolean): String {
+    private fun buildSuccessMessage(
+        emailSuccess: Boolean,
+        telegramSuccess: Boolean,
+        webhookSuccess: Boolean
+    ): String {
         val channels = buildList {
             if (emailSuccess) add(appContext.getString(R.string.label_email_channel))
             if (telegramSuccess) add("Telegram")
+            if (webhookSuccess) add(appContext.getString(R.string.label_webhook_channel))
         }
         return appContext.getString(
             R.string.format_sms_forward_success,

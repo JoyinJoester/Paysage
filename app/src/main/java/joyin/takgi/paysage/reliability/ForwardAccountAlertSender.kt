@@ -7,6 +7,8 @@ import joyin.takgi.paysage.data.ForwardAccount
 import joyin.takgi.paysage.security.ForwardAccountSecretStore
 import joyin.takgi.paysage.sender.EmailSender
 import joyin.takgi.paysage.sender.TelegramSender
+import joyin.takgi.paysage.sender.WebhookMessage
+import joyin.takgi.paysage.sender.WebhookSender
 import kotlinx.coroutines.flow.first
 
 class ForwardAccountAlertSender(context: Context) {
@@ -20,6 +22,7 @@ class ForwardAccountAlertSender(context: Context) {
             when (account.type) {
                 AccountType.EMAIL -> sendEmail(account, subject, body)
                 AccountType.TELEGRAM -> sendTelegram(account, subject, body)
+                else -> sendWebhook(account, subject, body)
             }
         }
     }
@@ -53,6 +56,12 @@ class ForwardAccountAlertSender(context: Context) {
     private suspend fun sendTelegram(account: ForwardAccount, subject: String, body: String) {
         if (account.botToken.isBlank() || account.chatId.isBlank()) return
         TelegramSender(account.botToken, account.chatId, appContext)
+            .sendPlain("$subject\n\n$body")
+    }
+
+    private suspend fun sendWebhook(account: ForwardAccount, subject: String, body: String) {
+        if (!WebhookMessage.isReady(account.type, account.webhookUrl, account.webhookSecret)) return
+        WebhookSender(account.type, account.webhookUrl, account.webhookSecret, appContext)
             .sendPlain("$subject\n\n$body")
     }
 }

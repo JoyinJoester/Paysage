@@ -343,6 +343,12 @@
     <string name="title_edit_account">Редактировать аккаунт</string>
     <string name="label_account_name">Имя аккаунта</string>
     <string name="type_email">Email</string>
+    <string name="type_webhook">Webhook</string>
+    <string name="type_bark">Bark</string>
+    <string name="type_serverchan">ServerChan</string>
+    <string name="type_dingtalk">DingTalk</string>
+    <string name="type_feishu">Feishu</string>
+    <string name="type_wecom">WeCom</string>
     <string name="type_telegram">Telegram</string>
     <string name="label_phone_whitelist">Белый список телефонов (через запятую, пусто = все)</string>
     <string name="title_email_settings">Настройки Email</string>
@@ -1141,6 +1147,17 @@
     <string name="message_all_forward_channels_failed">Все каналы пересылки не сработали и ожидают автоматического повтора.</string>
     <string name="format_sms_forward_success">Успешно переслано: %s</string>
     <string name="label_email_channel">Почта</string>
+    <string name="title_webhook_settings">Настройки Webhook</string>
+    <string name="label_webhook_url">Webhook URL</string>
+    <string name="label_webhook_secret">Секрет / ключ</string>
+    <string name="hint_webhook_url_optional">Оставьте пустым для официального сервера</string>
+    <string name="hint_webhook_secret_bark">Ключ устройства Bark — часть your_key из https://api.day.app/your_key</string>
+    <string name="hint_webhook_secret_serverchan">SendKey ServerChan</string>
+    <string name="hint_webhook_secret_dingtalk">Требуется только при подписи робота DingTalk</string>
+    <string name="hint_webhook_secret_optional">Необязательно, зависит от сервиса</string>
+    <string name="message_webhook_config_incomplete">Укажите Webhook URL или ключ.</string>
+    <string name="prefix_webhook">Webhook: </string>
+    <string name="label_webhook_channel">Webhook</string>
     <string name="separator_list">, </string>
     <string name="format_sms_email_subject">[SMS] От %s</string>
     <string name="format_sms_forward_body">Отправитель: %1$s\nВремя: %2$s\n\nСодержание:\n%3$s</string>

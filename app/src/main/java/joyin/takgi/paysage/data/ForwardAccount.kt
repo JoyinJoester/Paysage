@@ -8,7 +8,7 @@ data class ForwardAccount(
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
     val name: String,
-    val type: AccountType, // EMAIL or TELEGRAM
+    val type: AccountType, // EMAIL, TELEGRAM 或 Webhook 类通道
     val isEnabled: Boolean = true,
 
     // 邮箱配置
@@ -27,12 +27,26 @@ data class ForwardAccount(
     val botToken: String = "",
     val chatId: String = "",
 
+    // Webhook 类通道配置(通用 Webhook / Bark / Server酱 / 钉钉 / 飞书 / 企业微信)
+    val webhookUrl: String = "",
+    val webhookSecret: String = "",
+
     // 过滤规则（号码白名单，逗号分隔）
     val phoneWhitelist: String = "" // 空=全部转发
 )
 
 enum class AccountType {
-    EMAIL, TELEGRAM
+    EMAIL,
+    TELEGRAM,
+    WEBHOOK,
+    BARK,
+    SERVERCHAN,
+    DINGTALK,
+    FEISHU,
+    WECOM;
+
+    val isWebhookType: Boolean
+        get() = this in WEBHOOK..WECOM
 }
 
 enum class SmtpProvider {

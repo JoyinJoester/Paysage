@@ -14,6 +14,7 @@ data class SmsForwardOutcome(
     val filtered: Boolean,
     val emailSuccess: Boolean,
     val telegramSuccess: Boolean,
+    val webhookSuccess: Boolean = false,
     val message: String
 ) {
     val failed: Boolean

@@ -343,6 +343,12 @@
     <string name="title_edit_account">アカウントを編集</string>
     <string name="label_account_name">アカウント名</string>
     <string name="type_email">メール</string>
+    <string name="type_webhook">Webhook</string>
+    <string name="type_bark">Bark</string>
+    <string name="type_serverchan">ServerChan</string>
+    <string name="type_dingtalk">DingTalk</string>
+    <string name="type_feishu">Feishu</string>
+    <string name="type_wecom">WeCom</string>
     <string name="type_telegram">Telegram</string>
     <string name="label_phone_whitelist">電話ホワイトリスト（カンマ区切り、空=すべて）</string>
     <string name="title_email_settings">メール設定</string>
@@ -1141,6 +1147,17 @@
     <string name="message_all_forward_channels_failed">すべての転送チャネルが失敗し、自動再試行を待っています。</string>
     <string name="format_sms_forward_success">転送成功: %s</string>
     <string name="label_email_channel">メール</string>
+    <string name="title_webhook_settings">Webhook 設定</string>
+    <string name="label_webhook_url">Webhook URL</string>
+    <string name="label_webhook_secret">シークレット / キー</string>
+    <string name="hint_webhook_url_optional">空欄で公式サーバーを使用</string>
+    <string name="hint_webhook_secret_bark">Bark のデバイスキー(https://api.day.app/your_key の your_key 部分)</string>
+    <string name="hint_webhook_secret_serverchan">ServerChan の SendKey</string>
+    <string name="hint_webhook_secret_dingtalk">DingTalk ロボットが署名検証を有効にしている場合のみ必須</string>
+    <string name="hint_webhook_secret_optional">任意。接続先サービスによる</string>
+    <string name="message_webhook_config_incomplete">Webhook URL またはキーを入力してください。</string>
+    <string name="prefix_webhook">Webhook: </string>
+    <string name="label_webhook_channel">Webhook</string>
     <string name="separator_list">、</string>
     <string name="format_sms_email_subject">[SMS] %s から</string>
     <string name="format_sms_forward_body">送信者: %1$s\n時刻: %2$s\n\n内容:\n%3$s</string>

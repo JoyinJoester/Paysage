@@ -17,7 +17,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         MailCommandNonceEntity::class,
         MailCommandRecordEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -40,7 +40,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "paysage_database"
                 )
-                    .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                    .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                     .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
@@ -205,6 +205,12 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE forward_accounts ADD COLUMN smtpCredentialRef TEXT NOT NULL DEFAULT ''")
                 db.execSQL("ALTER TABLE forward_accounts ADD COLUMN emailEncryptionEnabled INTEGER NOT NULL DEFAULT 0")
                 db.execSQL("ALTER TABLE forward_accounts ADD COLUMN emailEncryptionKeyRef TEXT NOT NULL DEFAULT ''")
+            }
+        }
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE forward_accounts ADD COLUMN webhookUrl TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE forward_accounts ADD COLUMN webhookSecret TEXT NOT NULL DEFAULT ''")
             }
         }
     }
