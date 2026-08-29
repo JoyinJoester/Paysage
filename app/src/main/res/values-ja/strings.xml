@@ -627,6 +627,9 @@
     <string name="permission_camera_summary">eSIM QRコードのスキャンに使用します。</string>
     <string name="permission_phone_state_title">電話状態</string>
     <string name="permission_phone_state_summary">着信、不在着信、拒否、ブロックされた通話を検出し、メールまたはTelegramで通知します。</string>
+    <string name="permission_notification_listener_title">通知リスナー権限</string>
+    <string name="permission_notification_listener_summary">システム標準の通知読み取り方式。アクセシビリティより安定した SMS 取得経路です。通知アクセス権限リストで Paysage を有効にしてください。</string>
+    <string name="action_open_notification_listener_settings">通知アクセス設定を開く</string>
     <string name="permission_accessibility_title">アクセシビリティサービス</string>
     <string name="permission_accessibility_summary">新しいAndroidでのSMS/RCS互換性向けの任意バックアップ監視です。</string>
     <string name="permission_battery_title">バッテリー最適化</string>
@@ -1256,6 +1259,7 @@
     <string name="format_mail_refresh_success">%1$d 件のメールを確認し、新規 %2$d 件、実行 %3$d 件、無視 %4$d 件でした。</string>
     <string name="format_telegram_command_rejected">Telegramコマンドは拒否されました: %1$s</string>
     <string name="format_telegram_command_refresh_success">%1$d 件のTelegram更新を確認し、%2$d 件のコマンドを実行、%3$d 件を無視しました。</string>
+    <string name="format_telegram_command_conflict_hint">Bot の競合を検出(%1$s)。同じ Bot Token で他の端末やプログラムがポーリングしていないか、webhook が設定されていないか確認してください。</string>
     <string name="format_telegram_command_refresh_failed">Telegramコマンドの確認に失敗しました: %1$s</string>
     <string name="telegram_command_completed">Paysage Telegramコマンドの実行が完了しました。</string>
     <string name="format_telegram_command_action">コマンド: %1$s</string>

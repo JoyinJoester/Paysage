@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Accessibility
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.BatterySaver
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
@@ -149,6 +150,9 @@ fun PermissionManagementScreen(
                             PermissionAction.OpenAccessibility -> {
                                 context.startSettingsSafely(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                             }
+                            PermissionAction.OpenNotificationListener -> {
+                                context.startSettingsSafely(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                            }
                             PermissionAction.OpenBattery -> {
                                 val activity = context.findActivity()
                                 if (activity != null) {
@@ -257,6 +261,7 @@ private data class PermissionItem(
 private enum class PermissionAction {
     RequestRuntime,
     OpenAccessibility,
+    OpenNotificationListener,
     OpenBattery,
     OpenAppDetails
 }
@@ -308,6 +313,15 @@ private fun buildPermissionItems(context: Context): List<PermissionItem> {
             actionLabel = context.getString(R.string.action_open_accessibility_settings)
         ),
         PermissionItem(
+            id = "notification_listener",
+            title = context.getString(R.string.permission_notification_listener_title),
+            summary = context.getString(R.string.permission_notification_listener_summary),
+            icon = Icons.Default.NotificationsActive,
+            granted = context.isNotificationListenerEnabled(),
+            action = PermissionAction.OpenNotificationListener,
+            actionLabel = context.getString(R.string.action_open_notification_listener_settings)
+        ),
+        PermissionItem(
             id = "battery",
             title = context.getString(R.string.permission_battery_title),
             summary = context.getString(R.string.permission_battery_summary),
@@ -321,6 +335,10 @@ private fun buildPermissionItems(context: Context): List<PermissionItem> {
 
 private fun Context.hasRuntimePermission(permission: String): Boolean =
     ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
+
+private fun Context.isNotificationListenerEnabled(): Boolean =
+    androidx.core.app.NotificationManagerCompat.getEnabledListenerPackages(this)
+        .contains(packageName)
 
 private fun Context.isAccessibilityEnabled(): Boolean {
     val enabledServices = Settings.Secure.getString(

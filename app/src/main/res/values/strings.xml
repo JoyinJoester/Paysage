@@ -622,6 +622,9 @@
     <string name="permission_camera_summary">Used for scanning eSIM QR codes.</string>
     <string name="permission_phone_state_title">Phone state</string>
     <string name="permission_phone_state_summary">Used to detect incoming, missed, rejected, and blocked calls for Email and Telegram alerts.</string>
+    <string name="permission_notification_listener_title">Notification Listener</string>
+    <string name="permission_notification_listener_summary">System-standard notification access, a more reliable SMS capture channel than accessibility. Enable Paysage in the system notification access list.</string>
+    <string name="action_open_notification_listener_settings">Open notification access settings</string>
     <string name="permission_accessibility_title">Accessibility service</string>
     <string name="permission_accessibility_summary">Optional backup monitoring path for SMS/RCS compatibility on newer Android versions.</string>
     <string name="permission_battery_title">Battery optimization</string>
@@ -1261,6 +1264,7 @@
     <string name="format_mail_refresh_success">Checked %1$d mails, found %2$d new mails, executed %3$d commands, ignored %4$d mails.</string>
     <string name="format_telegram_command_rejected">Telegram command rejected: %1$s</string>
     <string name="format_telegram_command_refresh_success">Checked %1$d Telegram updates, executed %2$d commands, ignored %3$d updates.</string>
+    <string name="format_telegram_command_conflict_hint">Bot conflict detected (%1$s). Make sure no other device or program is polling getUpdates with the same Bot Token, and no webhook is set.</string>
     <string name="format_telegram_command_refresh_failed">Telegram command check failed: %1$s</string>
     <string name="telegram_command_completed">Paysage Telegram command completed.</string>
     <string name="format_telegram_command_action">Command: %1$s</string>

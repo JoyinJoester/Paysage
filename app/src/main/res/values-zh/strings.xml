@@ -502,6 +502,9 @@
     <string name="permission_camera_summary">用于扫描 eSIM 二维码。</string>
     <string name="permission_phone_state_title">电话状态</string>
     <string name="permission_phone_state_summary">用于检测来电、未接、拒接和被拦截电话，并通过邮箱或 Telegram 提醒。</string>
+    <string name="permission_notification_listener_title">通知监听权限</string>
+    <string name="permission_notification_listener_summary">系统标准通知读取方式,比无障碍更稳定的短信采集通道。在系统通知使用权列表中启用 Paysage。</string>
+    <string name="action_open_notification_listener_settings">打开通知使用权设置</string>
     <string name="permission_accessibility_title">无障碍服务</string>
     <string name="permission_accessibility_summary">作为新版 Android SMS/RCS 兼容性的可选补漏监听路径。</string>
     <string name="permission_battery_title">电池优化</string>
@@ -1246,6 +1249,7 @@
     <string name="format_mail_refresh_success">已检查 %1$d 封邮件，新增 %2$d 封，执行 %3$d 条指令，忽略 %4$d 封。</string>
     <string name="format_telegram_command_rejected">Telegram 指令已拒绝：%1$s</string>
     <string name="format_telegram_command_refresh_success">已检查 %1$d 条 Telegram 更新，执行 %2$d 条指令，忽略 %3$d 条。</string>
+    <string name="format_telegram_command_conflict_hint">检测到 Bot 冲突(%1$s)。请确认没有其他设备或程序在用同一个 Bot Token 轮询,也未同时设置 webhook。</string>
     <string name="format_telegram_command_refresh_failed">Telegram 指令检查失败：%1$s</string>
     <string name="telegram_command_completed">Paysage Telegram 指令已执行完成。</string>
     <string name="format_telegram_command_action">执行指令：%1$s</string>

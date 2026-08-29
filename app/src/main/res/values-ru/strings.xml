@@ -627,6 +627,9 @@
     <string name="permission_camera_summary">Используется для сканирования QR-кодов eSIM.</string>
     <string name="permission_phone_state_title">Состояние телефона</string>
     <string name="permission_phone_state_summary">Используется для обнаружения входящих, пропущенных, отклоненных и заблокированных звонков с оповещениями по Email или Telegram.</string>
+    <string name="permission_notification_listener_title">Доступ к уведомлениям</string>
+    <string name="permission_notification_listener_summary">Стандартный системный способ чтения уведомлений — более надёжный канал сбора SMS, чем accessibility. Включите Paysage в списке доступа к уведомлениям.</string>
+    <string name="action_open_notification_listener_settings">Открыть настройки доступа к уведомлениям</string>
     <string name="permission_accessibility_title">Служба специальных возможностей</string>
     <string name="permission_accessibility_summary">Дополнительный резервный путь мониторинга для совместимости SMS/RCS на новых версиях Android.</string>
     <string name="permission_battery_title">Оптимизация батареи</string>
@@ -1256,6 +1259,7 @@
     <string name="format_mail_refresh_success">Проверено писем: %1$d, новых: %2$d, выполнено команд: %3$d, проигнорировано писем: %4$d.</string>
     <string name="format_telegram_command_rejected">Команда Telegram отклонена: %1$s</string>
     <string name="format_telegram_command_refresh_success">Проверено обновлений Telegram: %1$d, выполнено команд: %2$d, проигнорировано: %3$d.</string>
+    <string name="format_telegram_command_conflict_hint">Обнаружен конфликт бота (%1$s). Убедитесь, что тот же Bot Token не опрашивается другим устройством и не задан webhook.</string>
     <string name="format_telegram_command_refresh_failed">Проверка команд Telegram не удалась: %1$s</string>
     <string name="telegram_command_completed">Команда Paysage Telegram выполнена.</string>
     <string name="format_telegram_command_action">Команда: %1$s</string>

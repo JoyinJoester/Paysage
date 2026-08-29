@@ -130,7 +130,16 @@ class TelegramCommandRepository(context: Context) {
                     executed += 1
                 }
             }.onFailure { error ->
-                lastError = error.message ?: error::class.java.simpleName
+                val raw = error.message.orEmpty()
+                lastError = if (raw.contains("Conflict", ignoreCase = true) || raw.contains("409")) {
+                    // 409:同一 Token 被多处 getUpdates 或 webhook 占用
+                    appContext.getString(
+                        R.string.format_telegram_command_conflict_hint,
+                        raw.take(120)
+                    )
+                } else {
+                    raw.ifBlank { error::class.java.simpleName }
+                }
             }
         }
 
