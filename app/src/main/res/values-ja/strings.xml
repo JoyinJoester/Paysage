@@ -5,6 +5,7 @@
 
     <!-- Tab Navigation -->
     <string name="tab_home">ホーム</string>
+    <string name="tab_dashboard">ダッシュボード</string>
     <string name="tab_settings">設定</string>
     <string name="tab_esim">eSIM</string>
 
@@ -93,6 +94,14 @@
     <string name="action_runtime_details">実行詳細</string>
     <string name="action_filter_rules">フィルタルール</string>
     <string name="action_forward_logs">転送ログ</string>
+    <string name="title_battery_status">バッテリーと温度</string>
+    <string name="label_battery_level">残量</string>
+    <string name="label_battery_temperature">温度</string>
+    <string name="label_battery_voltage">電圧</string>
+    <string name="label_charging">充電中</string>
+    <string name="value_charging_yes">はい</string>
+    <string name="value_charging_no">いいえ</string>
+    <string name="status_public_ip_failed_reason">取得失敗:%1$s</string>
     <string name="screen_log_detail_title">転送詳細</string>
     <string name="message_log_not_found">このログは存在しません(保持ポリシーで削除された可能性)。</string>
     <string name="title_add_sender_filter">発信者でフィルター</string>
@@ -1192,7 +1201,7 @@
     <string name="message_root_keep_alive_installed">ウォッチドッグを設置しました。一度再起動すると有効になります。</string>
     <string name="message_root_keep_alive_removed">ウォッチドッグを削除しました。</string>
     <string name="xposed_module_description">Paysage SMS 転送:フレームワーク層の SMS 取得</string>
-    <string name="screen_network_speed_title">通信速度ダッシュボード</string>
+    <string name="screen_network_speed_title">デバイスダッシュボード</string>
     <string name="summary_network_speed_entry">リアルタイム速度測定(パッシブ、このページのみ)</string>
     <string name="title_net_speed">通信速度</string>
     <string name="title_session_traffic">セッション通信量</string>

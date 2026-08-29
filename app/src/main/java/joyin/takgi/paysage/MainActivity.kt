@@ -41,6 +41,7 @@ import joyin.takgi.paysage.ui.screens.NetworkSpeedScreen
 import joyin.takgi.paysage.ui.screens.PermissionManagementScreen
 import joyin.takgi.paysage.ui.screens.RootModeScreen
 import joyin.takgi.paysage.ui.screens.SettingsScreen
+import joyin.takgi.paysage.ui.navigation.PaysageBottomBar
 import joyin.takgi.paysage.ui.navigation.PaysageTab
 import joyin.takgi.paysage.ui.components.M3eScaffoldBackground
 import joyin.takgi.paysage.ui.motion.paysageScreenEnter
@@ -116,6 +117,15 @@ class MainActivity : ComponentActivity() {
                                         onMailInboxClick = { navController.navigate("mailInbox") },
                                         selectedTab = selectedTab,
                                         onTabSelected = { selectedTab = it }
+                                    )
+                                    PaysageTab.Dashboard -> NetworkSpeedScreen(
+                                        onBackClick = null,
+                                        bottomBar = {
+                                            PaysageBottomBar(
+                                                selectedTab = selectedTab,
+                                                onTabSelected = { selectedTab = it }
+                                            )
+                                        }
                                     )
                                     PaysageTab.Settings -> SettingsScreen(
                                         selectedTab = selectedTab,

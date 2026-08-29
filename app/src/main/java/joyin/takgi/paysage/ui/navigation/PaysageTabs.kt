@@ -4,6 +4,7 @@ import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -23,7 +24,8 @@ enum class PaysageTab(
     val icon: ImageVector
 ) {
     Home(0, R.string.tab_home, Icons.Default.Home),
-    Settings(1, R.string.tab_settings, Icons.Default.Settings);
+    Dashboard(1, R.string.tab_dashboard, Icons.Default.Speed),
+    Settings(2, R.string.tab_settings, Icons.Default.Settings);
 
     companion object {
         fun fromIndex(index: Int): PaysageTab = entries.firstOrNull { it.index == index } ?: Home

@@ -5,6 +5,7 @@
 
     <!-- 标签页导航 -->
     <string name="tab_home">首页</string>
+    <string name="tab_dashboard">仪表盘</string>
     <string name="tab_settings">设置</string>
     <string name="tab_esim">eSIM</string>
 
@@ -93,6 +94,14 @@
     <string name="action_runtime_details">运行详情</string>
     <string name="action_filter_rules">过滤规则</string>
     <string name="action_forward_logs">转发日志</string>
+    <string name="title_battery_status">电池与温度</string>
+    <string name="label_battery_level">电量</string>
+    <string name="label_battery_temperature">温度</string>
+    <string name="label_battery_voltage">电压</string>
+    <string name="label_charging">充电中</string>
+    <string name="value_charging_yes">是</string>
+    <string name="value_charging_no">否</string>
+    <string name="status_public_ip_failed_reason">查询失败:%1$s</string>
     <string name="screen_log_detail_title">转发详情</string>
     <string name="message_log_not_found">该日志已不存在(可能被保留策略清理)。</string>
     <string name="title_add_sender_filter">按号码过滤</string>
@@ -1182,7 +1191,7 @@
     <string name="message_root_keep_alive_installed">看门狗脚本已安装,重启一次后生效。</string>
     <string name="message_root_keep_alive_removed">看门狗脚本已移除。</string>
     <string name="xposed_module_description">Paysage 短信转发:framework 层短信采集</string>
-    <string name="screen_network_speed_title">网速仪表盘</string>
+    <string name="screen_network_speed_title">设备仪表盘</string>
     <string name="summary_network_speed_entry">实时网速监测(被动采样,仅本页面运行)</string>
     <string name="title_net_speed">网络速度</string>
     <string name="title_session_traffic">本次流量统计</string>

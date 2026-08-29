@@ -5,6 +5,7 @@
 
     <!-- Tab Navigation -->
     <string name="tab_home">Главная</string>
+    <string name="tab_dashboard">Панель</string>
     <string name="tab_settings">Настройки</string>
     <string name="tab_esim">eSIM</string>
 
@@ -93,6 +94,14 @@
     <string name="action_runtime_details">Детали выполнения</string>
     <string name="action_filter_rules">Правила фильтрации</string>
     <string name="action_forward_logs">Журналы пересылки</string>
+    <string name="title_battery_status">Батарея и температура</string>
+    <string name="label_battery_level">Заряд</string>
+    <string name="label_battery_temperature">Температура</string>
+    <string name="label_battery_voltage">Напряжение</string>
+    <string name="label_charging">Зарядка</string>
+    <string name="value_charging_yes">Да</string>
+    <string name="value_charging_no">Нет</string>
+    <string name="status_public_ip_failed_reason">Не удалось определить: %1$s</string>
     <string name="screen_log_detail_title">Детали записи</string>
     <string name="message_log_not_found">Запись больше не существует (возможно, удалена политикой хранения).</string>
     <string name="title_add_sender_filter">Фильтр по отправителю</string>
@@ -1192,7 +1201,7 @@
     <string name="message_root_keep_alive_installed">Скрипт watchdog установлен. Перезагрузите устройство один раз.</string>
     <string name="message_root_keep_alive_removed">Скрипт watchdog удалён.</string>
     <string name="xposed_module_description">Paysage пересылка SMS: сбор на уровне framework</string>
-    <string name="screen_network_speed_title">Скорость сети</string>
+    <string name="screen_network_speed_title">Панель состояния</string>
     <string name="summary_network_speed_entry">Панель скорости в реальном времени (пассивно, только на этой странице)</string>
     <string name="title_net_speed">Скорость сети</string>
     <string name="title_session_traffic">Трафик за сессию</string>

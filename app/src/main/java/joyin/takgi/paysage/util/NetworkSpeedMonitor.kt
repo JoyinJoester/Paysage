@@ -24,7 +24,9 @@ class NetworkSpeedMonitor(
     private val intervalMs: Long = SAMPLE_INTERVAL_MS,
     private val historySize: Int = HISTORY_SIZE,
     private val counterReader: () -> Map<String, Pair<Long, Long>> = {
+        // Android 10+ 禁止应用读 /proc/net/dev,读不到时回退 /sys/class/net
         runCatching { NetDevParser.parse(File(PROC_NET_DEV).readText()) }.getOrDefault(emptyMap())
+            .ifEmpty { SystemNetCounters.read() }
     }
 ) {
     private val _state = MutableStateFlow(NetworkSpeedSnapshot())

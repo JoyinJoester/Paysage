@@ -39,9 +39,12 @@ import joyin.takgi.paysage.R
 import joyin.takgi.paysage.ui.components.M3eActionButton
 import joyin.takgi.paysage.ui.components.M3ePanel
 import joyin.takgi.paysage.ui.components.M3eTopBar
+import joyin.takgi.paysage.util.DeviceStatus
+import joyin.takgi.paysage.util.DeviceStatusCollector
 import joyin.takgi.paysage.util.NetworkSpeedMonitor
 import joyin.takgi.paysage.util.PublicIpChecker
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.net.NetworkInterface
@@ -49,11 +52,14 @@ import java.util.Locale
 
 /**
  * 网速仪表盘:参考 FlClash 的仪表盘逻辑。
- * 采样只读 /proc/net/dev 内核计数器(被动、零网络流量,不影响网速),
+ * 采样读内核字节计数器(被动、零网络流量,不影响网速),
  * 采样协程绑定本页面,离开页面即停止检测。
  */
 @Composable
-fun NetworkSpeedScreen(onBackClick: () -> Unit) {
+fun NetworkSpeedScreen(
+    onBackClick: (() -> Unit)? = null,
+    bottomBar: @Composable () -> Unit = {}
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val monitor = remember { NetworkSpeedMonitor() }
@@ -62,12 +68,22 @@ fun NetworkSpeedScreen(onBackClick: () -> Unit) {
     var publicIp by remember { mutableStateOf("") }
     var publicIpStatus by remember { mutableStateOf("") }
     var lanIps by remember { mutableStateOf<List<String>>(emptyList()) }
+    var deviceStatus by remember { mutableStateOf<DeviceStatus?>(null) }
 
     // 采样协程绑定本页面生命周期:离开页面协程被取消,自动停止检测
     LaunchedEffect(Unit) {
         launch { monitor.run() }
         // NetworkInterface 枚举是阻塞 I/O,放 IO 线程避免主线程卡顿
         lanIps = withContext(Dispatchers.IO) { collectLanAddresses() }
+        // 电池/温度每 3 秒刷新一次,同样仅页面停留期间
+        launch {
+            while (true) {
+                deviceStatus = withContext(Dispatchers.IO) {
+                    DeviceStatusCollector.collectStatus(context)
+                }
+                delay(3_000L)
+            }
+        }
         publicIpStatus = context.getString(R.string.status_public_ip_loading)
         PublicIpChecker.fetch()
             .onSuccess {
@@ -76,22 +92,30 @@ fun NetworkSpeedScreen(onBackClick: () -> Unit) {
             }
             .onFailure {
                 publicIp = ""
-                publicIpStatus = context.getString(R.string.status_public_ip_failed)
+                publicIpStatus = context.getString(
+                    R.string.status_public_ip_failed_reason,
+                    it.message?.take(120) ?: context.getString(R.string.status_public_ip_failed)
+                )
             }
     }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
+        bottomBar = bottomBar,
         topBar = {
             M3eTopBar(
                 title = stringResource(R.string.screen_network_speed_title),
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.action_back)
-                        )
+                navigationIcon = if (onBackClick != null) {
+                    {
+                        IconButton(onClick = onBackClick) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(R.string.action_back)
+                            )
+                        }
                     }
+                } else {
+                    null
                 }
             )
         }
@@ -153,6 +177,43 @@ fun NetworkSpeedScreen(onBackClick: () -> Unit) {
                         label = stringResource(R.string.label_download),
                         value = formatBytes(snapshot.downloadTotalBytes)
                     )
+                }
+            }
+
+            M3ePanel(modifier = Modifier.fillMaxWidth()) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = stringResource(R.string.title_battery_status),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    val status = deviceStatus
+                    if (status == null) {
+                        Text(
+                            text = "—",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        TrafficLine(
+                            label = stringResource(R.string.label_battery_level),
+                            value = "${status.batteryLevel}%"
+                        )
+                        TrafficLine(
+                            label = stringResource(R.string.label_battery_temperature),
+                            value = String.format(Locale.US, "%.1f ℃", status.batteryTemperature)
+                        )
+                        TrafficLine(
+                            label = stringResource(R.string.label_battery_voltage),
+                            value = String.format(Locale.US, "%.2f V", status.batteryVoltage)
+                        )
+                        TrafficLine(
+                            label = stringResource(R.string.label_charging),
+                            value = stringResource(
+                                if (status.isCharging) R.string.value_charging_yes else R.string.value_charging_no
+                            )
+                        )
+                    }
                 }
             }
 

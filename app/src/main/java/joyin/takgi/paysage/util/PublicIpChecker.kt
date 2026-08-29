@@ -11,8 +11,11 @@ import java.net.URL
  */
 object PublicIpChecker {
 
+    // 国内可达的服务放前面,国外服务作为备选;全部失败时把原因带出去显示
     private val ENDPOINTS = listOf(
         "https://myip.ipip.net",
+        "https://ip.3322.net",
+        "https://api.ip.sb/ip",
         "https://api.ipify.org",
         "https://ifconfig.me/ip"
     )
